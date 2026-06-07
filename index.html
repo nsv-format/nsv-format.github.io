@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NSV Explorer</title>
+<style>
+  :root {
+    --bg: #1a1a1a;
+    --fg: #d4d4d4;
+    --fg-dim: #808080;
+    --border: #333;
+    --accent: #e0e0e0;
+    --surface: #242424;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+    --sans: system-ui, -apple-system, sans-serif;
+    --add-fg: #6fbf6f;
+    --del-fg: #bf6f6f;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--sans);
+    background-color: var(--bg);
+    color: var(--fg);
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    line-height: 1.5;
+  }
+
+  header {
+    padding: 20px 24px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  #status {
+    font-size: 13px;
+    color: var(--fg-dim);
+    font-family: var(--mono);
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* --- Drag and Drop Zone --- */
+  #drop-zone {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    border: 2px dashed var(--border);
+    margin: 24px;
+    border-radius: 8px;
+    background-color: transparent;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  #drop-zone.dragover {
+    border-color: var(--add-fg);
+    background-color: #2a3a2a;
+  }
+
+  #drop-zone h2 {
+    margin-bottom: 8px;
+    font-size: 16px;
+    color: var(--fg);
+  }
+
+  #drop-zone p {
+    color: var(--fg-dim);
+    font-size: 14px;
+    margin-top: 0;
+  }
+
+  #file-input {
+    display: none;
+  }
+
+  /* --- Query Interface --- */
+  #query-interface {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    padding: 24px;
+    gap: 16px;
+    overflow: hidden;
+  }
+
+  .editor-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  textarea {
+    width: 100%;
+    height: 120px;
+    background-color: var(--surface);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+  }
+
+  textarea:focus {
+    outline: none;
+    border-color: #555;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  button {
+    background: #2a3a2a;
+    border: 1px solid #3a5a3a;
+    color: var(--add-fg);
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  button:hover {
+    border-color: #4a7a4a;
+  }
+  
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: var(--border);
+    color: var(--fg-dim);
+    background: var(--bg);
+  }
+
+  /* --- Results Area --- */
+  .results-container {
+    flex: 1;
+    background-color: var(--surface);
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    overflow: auto;
+    position: relative;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  th, td {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid #2a2a2a;
+    white-space: nowrap;
+  }
+
+  th {
+    background-color: #2a2a2a;
+    color: var(--fg-dim);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  tr:hover td {
+    background-color: #2a2a2a;
+  }
+
+  .error-message {
+    color: var(--del-fg);
+    padding: 16px;
+    font-family: var(--mono);
+    font-size: 13px;
+    white-space: pre-wrap;
+  }
+
+  .null-cell {
+    color: var(--fg-dim);
+    font-style: italic;
+  }
+
+  .loading-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(26, 26, 26, 0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--fg-dim);
+  }
+
+  .loading-overlay.active {
+    display: flex;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>NSV Explorer</h1>
+  <span id="status">Initializing DuckDB...</span>
+</header>
+
+<main>
+  <!-- Initial State -->
+  <div id="drop-zone">
+    <h2>Drop your NSV file here</h2>
+    <p>or click to browse</p>
+    <input type="file" id="file-input" accept=".nsv,.csv,.txt">
+  </div>
+
+  <!-- Active State -->
+  <div id="query-interface">
+    <div class="editor-container">
+      <textarea id="sql-input" spellcheck="false"></textarea>
+      <div class="controls">
+        <button id="run-btn" disabled>Run Query</button>
+      </div>
+    </div>
+    
+    <div class="results-container">
+      <div class="loading-overlay" id="loading">Loading...</div>
+      <div id="results-content"></div>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+  const DUCKDB_WASM_CDN = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@next';
+
+  // DOM Elements
+  const statusEl = document.getElementById('status');
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const queryInterface = document.getElementById('query-interface');
+  const sqlInput = document.getElementById('sql-input');
+  const runBtn = document.getElementById('run-btn');
+  const resultsContent = document.getElementById('results-content');
+  const loadingOverlay = document.getElementById('loading');
+
+  let db = null;
+  let conn = null;
+
+  function updateStatus(msg, isError = false) {
+    statusEl.textContent = msg;
+    statusEl.style.color = isError ? 'var(--del-fg)' : 'var(--add-fg)';
+  }
+
+  // --- 1. Initialize DuckDB-Wasm ---
+  async function initDuckDB() {
+    try {
+      const duckdb = await import(DUCKDB_WASM_CDN + '/+esm');
+      
+      const BUNDLES = {
+        mvp: {
+          mainModule: DUCKDB_WASM_CDN + '/dist/duckdb-mvp.wasm',
+          mainWorker: DUCKDB_WASM_CDN + '/dist/duckdb-browser-mvp.worker.js',
+        },
+        eh: {
+          mainModule: DUCKDB_WASM_CDN + '/dist/duckdb-eh.wasm',
+          mainWorker: DUCKDB_WASM_CDN + '/dist/duckdb-browser-eh.worker.js',
+        },
+      };
+
+      const bundle = await duckdb.selectBundle(BUNDLES);
+      const worker_url = URL.createObjectURL(
+        new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' })
+      );
+      
+      db = new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(), new Worker(worker_url));
+      await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+      URL.revokeObjectURL(worker_url);
+
+      // Open with unsigned extensions allowed
+      await db.open({
+        allowUnsignedExtensions: true,
+        query: { castBigIntToDouble: true, castTimestampToDate: true }
+      });
+
+      conn = await db.connect();
+
+      // Install & Load custom NSV extension via absolute URL
+      const extUrl = new URL('nsv.duckdb_extension.wasm', window.location.href).href;
+      await conn.query(`INSTALL '${extUrl}'`);
+      await conn.query(`LOAD '${extUrl}'`);
+
+      updateStatus('DuckDB Ready');
+      return duckdb; // Return module for constants
+    } catch (e) {
+      console.error(e);
+      updateStatus(`Initialization failed: ${e.message}`, true);
+      throw e;
+    }
+  }
+
+  // Start initialization immediately
+  const duckdbModulePromise = initDuckDB();
+
+  // --- 2. Handle File Drop ---
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, preventDefaults, false);
+  });
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+  });
+
+  dropZone.addEventListener('drop', handleDrop, false);
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length) handleFiles(e.target.files);
+  });
+
+  function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    handleFiles(files);
+  }
+
+  async function handleFiles(files) {
+    if (files.length === 0) return;
+    const file = files[0];
+    
+    try {
+      const duckdb = await duckdbModulePromise;
+      
+      updateStatus(`Loading ${file.name}...`);
+      
+      // Register the File object directly to DuckDB's virtual filesystem
+      await db.registerFileHandle(file.name, file, duckdb.DuckDBDataProtocol.BROWSER_FILEREADER, true);
+      
+      // Create a view for easy querying
+      await conn.query(`CREATE OR REPLACE VIEW data AS SELECT * FROM read_nsv('${file.name}')`);
+      
+      // Switch UI
+      dropZone.style.display = 'none';
+      queryInterface.style.display = 'flex';
+      
+      // Setup initial query
+      sqlInput.value = `SELECT * FROM data LIMIT 100;`;
+      runBtn.disabled = false;
+      
+      // Run it!
+      await executeQuery();
+      updateStatus(`Ready (${file.name})`);
+      
+    } catch (e) {
+      console.error(e);
+      alert(`Failed to load file: ${e.message}`);
+      updateStatus(`Error loading file`, true);
+    }
+  }
+
+  // --- 3. Execute Query & Render ---
+  runBtn.addEventListener('click', executeQuery);
+  
+  // Allow Cmd+Enter / Ctrl+Enter to run query
+  sqlInput.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      executeQuery();
+    }
+  });
+
+  async function executeQuery() {
+    const sql = sqlInput.value.trim();
+    if (!sql) return;
+
+    loadingOverlay.classList.add('active');
+    resultsContent.innerHTML = '';
+    runBtn.disabled = true;
+
+    try {
+      // Execute the query. Arrow Table is returned.
+      const result = await conn.query(sql);
+      renderTable(result);
+    } catch (e) {
+      resultsContent.innerHTML = `<div class="error-message">${e.message}</div>`;
+    } finally {
+      loadingOverlay.classList.remove('active');
+      runBtn.disabled = false;
+    }
+  }
+
+  function renderTable(result) {
+    if (result.numRows === 0) {
+      resultsContent.innerHTML = '<div style="padding:16px; color:var(--fg-dim);">No results returned.</div>';
+      return;
+    }
+
+    const fields = result.schema.fields;
+    const rows = result.toArray();
+    
+    let html = '<table><thead><tr>';
+    for (const field of fields) {
+      html += `<th>${escapeHtml(field.name)}</th>`;
+    }
+    html += '</tr></thead><tbody>';
+
+    for (const row of rows) {
+      html += '<tr>';
+      for (const field of fields) {
+        const val = row[field.name];
+        let displayVal = val;
+        
+        if (val === null || val === undefined) {
+          displayVal = '<span class="null-cell">null</span>';
+        } else {
+          const typeStr = field.type ? field.type.toString().toLowerCase() : '';
+          
+          if (val instanceof Date) {
+             displayVal = escapeHtml(val.toISOString());
+          } else if (typeStr.includes('timestamp') || typeStr.includes('date')) {
+             let numVal = Number(val);
+             // DuckDB often returns timestamps in microseconds. 
+             if (numVal > 1e14 || numVal < -1e14) {
+                 numVal = numVal / 1000;
+             }
+             const d = new Date(numVal);
+             displayVal = escapeHtml(!isNaN(d.getTime()) ? d.toISOString().replace('T', ' ').replace('Z', '') : String(val));
+          } else {
+             // Let Arrow's custom objects (like BigNum) format themselves natively.
+             // Their .toString() correctly returns unquoted numbers like "639617" 
+             // without falling back to raw array representations or JSON quotes.
+             displayVal = escapeHtml(String(val));
+          }
+        }
+        
+        html += `<td>${displayVal}</td>`;
+      }
+      html += '</tr>';
+    }
+    
+    html += '</tbody></table>';
+    resultsContent.innerHTML = html;
+  }
+
+  function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+  }
+
+</script>
+</body>
+</html>
