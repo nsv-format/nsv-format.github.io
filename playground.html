@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NSV Playground</title>
+<style>
+  :root {
+    --bg: #1a1a1a;
+    --fg: #d4d4d4;
+    --fg-dim: #808080;
+    --border: #333;
+    --accent: #e0e0e0;
+    --surface: #242424;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+    --sans: system-ui, -apple-system, sans-serif;
+    --add: #2d4a2d;
+    --del: #4a2d2d;
+    --add-fg: #6fbf6f;
+    --del-fg: #bf6f6f;
+    --drop-active: #2a3a2a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--fg); line-height: 1.5; }
+
+  header { padding: 20px 24px 0; display: flex; align-items: baseline; gap: 16px; }
+  header h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+  header span { font-size: 13px; color: var(--fg-dim); }
+  header a { color: var(--fg-dim); font-size: 13px; text-decoration: none; margin-left: auto; }
+  header a:hover { color: var(--fg); }
+
+  nav { display: flex; gap: 0; padding: 16px 24px 0; border-bottom: 1px solid var(--border); }
+  nav button {
+    background: none; border: none; color: var(--fg-dim); font-family: var(--sans);
+    font-size: 14px; padding: 8px 16px; cursor: pointer; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; transition: color 0.15s;
+  }
+  nav button:hover { color: var(--fg); }
+  nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab { display: none; padding: 24px; }
+  .tab.active { display: block; }
+
+  .dropzone {
+    border: 2px dashed var(--border); border-radius: 8px; padding: 32px;
+    text-align: center; cursor: pointer; transition: all 0.2s;
+    margin-bottom: 20px; position: relative;
+  }
+  .dropzone:hover { border-color: #555; }
+  .dropzone.dragover { border-color: var(--add-fg); background: var(--drop-active); }
+  .dropzone-icon { font-size: 28px; margin-bottom: 8px; opacity: 0.5; }
+  .dropzone-text { font-size: 14px; color: var(--fg-dim); }
+  .dropzone-text strong { color: var(--fg); }
+  .dropzone-sub { font-size: 12px; color: #555; margin-top: 4px; }
+  .dropzone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+  .file-result {
+    display: none; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 16px; margin-bottom: 20px;
+  }
+  .file-result.visible { display: block; }
+  .file-result-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .file-result-name { font-family: var(--mono); font-size: 13px; }
+  .file-result-meta { font-size: 12px; color: var(--fg-dim); font-family: var(--mono); }
+  .file-result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .btn {
+    background: var(--bg); border: 1px solid var(--border); color: var(--fg);
+    font-family: var(--sans); font-size: 13px; padding: 6px 14px; border-radius: 4px;
+    cursor: pointer; transition: border-color 0.15s;
+  }
+  .btn:hover { border-color: #555; }
+  .btn.primary { background: #2a3a2a; border-color: #3a5a3a; color: var(--add-fg); }
+  .btn.primary:hover { border-color: #4a7a4a; }
+
+  .table-wrap {
+    overflow: auto; max-height: 420px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 4px; margin-top: 14px;
+  }
+  .table-wrap:empty { display: none; }
+  .sq-table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 12px; }
+  .sq-table th {
+    position: sticky; top: 0; background: #2a2a2a; color: var(--fg-dim);
+    font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: left;
+  }
+  .sq-table td {
+    padding: 4px 10px; border-bottom: 1px solid #2a2a2a;
+    white-space: pre; max-width: 300px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sq-table tr:hover td { background: #2a2a2a; }
+  .sq-table .ri {
+    color: #555; text-align: right; padding-right: 12px; user-select: none;
+    border-right: 1px solid var(--border); width: 40px;
+  }
+  .sq-table .ec { color: var(--fg-dim); font-style: italic; }
+  .table-trunc { padding: 8px 12px; font-size: 12px; color: var(--fg-dim); }
+
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .pane label {
+    display: block; font-size: 12px; color: var(--fg-dim); text-transform: uppercase;
+    letter-spacing: 0.05em; margin-bottom: 6px;
+  }
+  textarea {
+    width: 100%; height: 280px; background: var(--surface); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 4px; padding: 12px;
+    font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: vertical; tab-size: 2;
+  }
+  textarea:focus { outline: none; border-color: #555; }
+  textarea::placeholder { color: #555; }
+
+  .actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .status { font-size: 12px; color: var(--fg-dim); font-family: var(--mono); }
+  .status.error { color: var(--del-fg); }
+
+  .example-picker { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .example-picker button {
+    background: var(--surface); border: 1px solid var(--border); color: var(--fg-dim);
+    font-family: var(--sans); font-size: 12px; padding: 4px 10px; border-radius: 3px; cursor: pointer;
+  }
+  .example-picker button:hover { color: var(--fg); border-color: #555; }
+  .example-picker button.active { color: var(--accent); border-color: #555; }
+
+  .seqseq-view {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+    padding: 12px; font-family: var(--mono); font-size: 13px; min-height: 100px;
+    overflow: auto; line-height: 1.6;
+  }
+  .seqseq-row { margin-bottom: 4px; }
+  .seqseq-cell {
+    display: inline-block; background: #2a2a2a; border: 1px solid #383838;
+    border-radius: 2px; padding: 1px 6px; margin: 1px 2px; font-size: 12px;
+  }
+  .seqseq-cell.empty { color: var(--fg-dim); font-style: italic; }
+  .seqseq-index { color: #555; font-size: 11px; display: inline-block; width: 24px; text-align: right; margin-right: 8px; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  .diff-container { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  .diff-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+    overflow: auto; font-family: var(--mono); font-size: 13px; line-height: 1.6;
+  }
+  .diff-box h3 {
+    font-size: 12px; font-weight: 500; color: var(--fg-dim); padding: 8px 12px;
+    border-bottom: 1px solid var(--border); text-transform: uppercase;
+    letter-spacing: 0.05em; position: sticky; top: 0; background: var(--surface);
+  }
+  .diff-line { padding: 0 12px; white-space: pre; }
+  .diff-line.add { background: var(--add); color: var(--add-fg); }
+  .diff-line.del { background: var(--del); color: var(--del-fg); }
+  .diff-line.ctx { color: var(--fg-dim); }
+  .diff-intro { font-size: 13px; color: var(--fg-dim); line-height: 1.7; max-width: 720px; }
+
+  @media (max-width: 768px) {
+    .panes, .diff-container { grid-template-columns: 1fr; }
+    textarea { height: 200px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>NSV Playground</h1>
+  <span>Newline-Separated Values</span>
+  <a href="https://nsv-format.org" target="_blank">spec ↗</a>
+</header>
+
+<nav>
+  <button class="active" data-tab="parse">Parse / Stringify</button>
+  <button data-tab="convert">CSV ↔ NSV</button>
+  <button data-tab="diff">Diff Demo</button>
+</nav>
+
+<!-- ═══ Tab 1: Parse ═══ -->
+<div class="tab active" id="tab-parse">
+  <div class="dropzone" id="parse-drop">
+    <input type="file" accept=".nsv,.csv,.tsv,.txt">
+    <div class="dropzone-icon">↓</div>
+    <div class="dropzone-text">Drop an <strong>.nsv</strong> or <strong>.csv</strong> file, or click to choose</div>
+    <div class="dropzone-sub">Auto-detects format · nothing leaves your machine</div>
+  </div>
+  <div class="file-result" id="parse-result">
+    <div class="file-result-header">
+      <span class="file-result-name" id="pr-name"></span>
+      <span class="file-result-meta" id="pr-meta"></span>
+    </div>
+    <div class="file-result-actions" id="pr-actions"></div>
+    <div class="table-wrap" id="pr-table"></div>
+  </div>
+  <hr class="divider">
+  <div class="example-picker">
+    <span style="font-size:12px;color:var(--fg-dim);line-height:28px;">Examples:</span>
+    <button data-example="table">Table</button>
+    <button data-example="ragged">Ragged rows</button>
+    <button data-example="escapes">Escapes</button>
+    <button data-example="empty">Empty cells</button>
+  </div>
+  <div class="panes">
+    <div class="pane">
+      <label>NSV (encoded)</label>
+      <textarea id="nsv-input" placeholder="Paste NSV here or pick an example..."></textarea>
+      <div class="actions">
+        <button class="btn" id="btn-parse">Parse →</button>
+        <span class="status" id="parse-status"></span>
+      </div>
+    </div>
+    <div class="pane">
+      <label>Seqseq (decoded)</label>
+      <div class="seqseq-view" id="seqseq-output"><span style="color:#555;">Output appears here</span></div>
+      <div class="actions">
+        <button class="btn" id="btn-stringify">← Stringify</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Tab 2: Convert ═══ -->
+<div class="tab" id="tab-convert">
+  <div class="dropzone" id="convert-drop">
+    <input type="file" accept=".nsv,.csv,.tsv,.txt">
+    <div class="dropzone-icon">↓</div>
+    <div class="dropzone-text">Drop a <strong>.csv</strong> or <strong>.nsv</strong> to convert</div>
+    <div class="dropzone-sub">CSV → NSV or NSV → CSV · auto-detected from extension and content</div>
+  </div>
+  <div class="file-result" id="convert-result">
+    <div class="file-result-header">
+      <span class="file-result-name" id="cr-name"></span>
+      <span class="file-result-meta" id="cr-meta"></span>
+    </div>
+    <div class="file-result-actions" id="cr-actions"></div>
+  </div>
+  <hr class="divider">
+  <div class="panes">
+    <div class="pane">
+      <label>CSV</label>
+      <textarea id="csv-input" placeholder="name,age,city&#10;Alice,30,Berlin&#10;Bob,25,Tokyo"></textarea>
+      <div class="actions"><button class="btn" id="btn-csv-to-nsv">To NSV →</button></div>
+    </div>
+    <div class="pane">
+      <label>NSV</label>
+      <textarea id="nsv-conv-out" placeholder="Converted output..."></textarea>
+      <div class="actions">
+        <button class="btn" id="btn-nsv-to-csv">← To CSV</button>
+        <span class="status" id="convert-status"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Tab 3: Diff ═══ -->
+<div class="tab" id="tab-diff">
+  <div class="diff-intro">
+    <p>The core pitch: in CSV, changing one cell diffs the entire row. In NSV, only the affected cell shows.</p>
+  </div>
+  <div class="example-picker" style="margin-top:12px;">
+    <button data-diff="cell" class="active">Cell edit</button>
+    <button data-diff="insert">Row insert</button>
+    <button data-diff="reorder">Column reorder</button>
+  </div>
+  <div class="diff-container">
+    <div class="diff-box"><h3>CSV diff</h3><div id="csv-diff"></div></div>
+    <div class="diff-box"><h3>NSV diff</h3><div id="nsv-diff"></div></div>
+  </div>
+</div>
+
+<script>
+/* ═══ Vendored NSV parser (from @nsv-format/nsv, browser subset) ═══ */
+
+const NSV = (() => {
+  function unescape(s) {
+    if (s === '\\') return '';
+    let r = '', i = 0;
+    while (i < s.length) {
+      if (s[i] === '\\') {
+        if (i + 1 < s.length) {
+          const nx = s[i + 1];
+          if (nx === '\\') { r += '\\'; i += 2; }
+          else if (nx === 'n') { r += '\n'; i += 2; }
+          else { r += s[i]; i += 1; }
+        } else { i += 1; }
+      } else { r += s[i]; i += 1; }
+    }
+    return r;
+  }
+  function escape(s) {
+    if (s === '') return '\\';
+    return s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n');
+  }
+  function parse(text) {
+    if (!text) return [];
+    const data = []; let row = [], start = 0;
+    for (let p = 0; p < text.length; p++) {
+      if (text[p] === '\n') {
+        if (p - start >= 1) row.push(unescape(text.substring(start, p)));
+        else { data.push(row); row = []; }
+        start = p + 1;
+      }
+    }
+    if (start < text.length) row.push(unescape(text.substring(start)));
+    if (row.length > 0) data.push(row);
+    return data;
+  }
+  function stringify(data) {
+    const lines = [];
+    for (const row of data) { for (const cell of row) lines.push(escape(cell)); lines.push(''); }
+    return lines.map(l => l + '\n').join('');
+  }
+  return { parse, stringify, escape, unescape };
+})();
+
+/* ═══ RFC 4180 CSV parser ═══ */
+
+const CSV = (() => {
+  function parse(text) {
+    if (!text || !text.trim()) return [];
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const rows = []; let row = [], cell = '', q = false, i = 0;
+    while (i < text.length) {
+      const c = text[i];
+      if (q) {
+        if (c === '"') { if (i+1 < text.length && text[i+1] === '"') { cell += '"'; i += 2; } else { q = false; i++; } }
+        else { cell += c; i++; }
+      } else {
+        if (c === '"') { q = true; i++; }
+        else if (c === ',') { row.push(cell); cell = ''; i++; }
+        else if (c === '\n') { row.push(cell); cell = ''; rows.push(row); row = []; i++; }
+        else { cell += c; i++; }
+      }
+    }
+    if (cell || row.length > 0) { row.push(cell); rows.push(row); }
+    if (rows.length && rows[rows.length-1].length === 1 && rows[rows.length-1][0] === '') rows.pop();
+    return rows;
+  }
+  function stringify(data) {
+    return data.map(row => row.map(c =>
+      (c.includes(',') || c.includes('"') || c.includes('\n')) ? '"' + c.replace(/"/g, '""') + '"' : c
+    ).join(',')).join('\n') + '\n';
+  }
+  return { parse, stringify };
+})();
+
+/* ═══ Utilities ═══ */
+
+function detect(text, name) {
+  const ext = (name || '').split('.').pop().toLowerCase();
+  if (ext === 'nsv') return 'nsv';
+  if (ext === 'csv' || ext === 'tsv') return 'csv';
+  const dblNL = text.includes('\n\n');
+  const lines = text.split('\n').filter(l => l.length);
+  if (!lines.length) return 'csv';
+  if (dblNL && lines.filter(l => l.includes(',')).length / lines.length < 0.3) return 'nsv';
+  return 'csv';
+}
+function fmtB(n) { return n < 1024 ? n+' B' : n < 1048576 ? (n/1024).toFixed(1)+' KB' : (n/1048576).toFixed(1)+' MB'; }
+function dl(text, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+  a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+function swapExt(n, e) { const d = n.lastIndexOf('.'); return (d > 0 ? n.substring(0, d) : n) + '.' + e; }
+function h(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function mkBtn(label, cls, fn) {
+  const b = document.createElement('button'); b.className = 'btn' + (cls ? ' '+cls : '');
+  b.textContent = label; b.onclick = fn; return b;
+}
+
+/* ═══ Table renderer ═══ */
+
+function renderTable(data, el, cap) {
+  cap = cap || 300;
+  if (!data.length) { el.innerHTML = '<div style="padding:12px;color:#555;">Empty</div>'; return; }
+  const mc = data.reduce((m, r) => Math.max(m, r.length), 0);
+  const show = data.length > cap ? data.slice(0, cap) : data;
+  let s = '<table class="sq-table"><thead><tr><th class="ri">#</th>';
+  for (let c = 0; c < mc; c++) s += '<th>'+c+'</th>';
+  s += '</tr></thead><tbody>';
+  for (let r = 0; r < show.length; r++) {
+    s += '<tr><td class="ri">'+r+'</td>';
+    for (let c = 0; c < mc; c++) {
+      if (c < show[r].length) {
+        const v = show[r][c];
+        s += v === '' ? '<td class="ec">""</td>' : '<td>'+h(v)+'</td>';
+      } else s += '<td></td>';
+    }
+    s += '</tr>';
+  }
+  s += '</tbody></table>';
+  if (data.length > cap) s += '<div class="table-trunc">Showing '+cap+' of '+data.length+' rows</div>';
+  el.innerHTML = s;
+}
+
+/* ═══ Dropzone wiring ═══ */
+
+function wireDrop(zone, fn) {
+  const inp = zone.querySelector('input[type="file"]');
+  ['dragenter','dragover'].forEach(e => zone.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); zone.classList.add('dragover'); }));
+  ['dragleave','drop'].forEach(e => zone.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); zone.classList.remove('dragover'); }));
+  zone.addEventListener('drop', e => { if (e.dataTransfer.files[0]) rd(e.dataTransfer.files[0], fn); });
+  inp.addEventListener('change', e => { if (e.target.files[0]) rd(e.target.files[0], fn); inp.value = ''; });
+}
+function rd(file, fn) { const r = new FileReader(); r.onload = () => fn(r.result, file.name, file.size); r.readAsText(file, 'utf-8'); }
+
+/* ═══ Parse tab — file drop ═══ */
+
+wireDrop(document.getElementById('parse-drop'), (text, name, size) => {
+  const fmt = detect(text, name);
+  let data;
+  try { data = fmt === 'nsv' ? NSV.parse(text) : CSV.parse(text); }
+  catch (e) { alert('Parse error: ' + e.message); return; }
+  const cells = data.reduce((s, r) => s + r.length, 0);
+  const res = document.getElementById('parse-result');
+  document.getElementById('pr-name').textContent = name;
+  document.getElementById('pr-meta').textContent = fmt.toUpperCase()+' · '+fmtB(size)+' · '+data.length+' rows · '+cells+' cells';
+  const act = document.getElementById('pr-actions'); act.innerHTML = '';
+  if (fmt === 'csv') {
+    act.appendChild(mkBtn('↓ Download as .nsv', 'primary', () => dl(NSV.stringify(data), swapExt(name, 'nsv'))));
+    act.appendChild(mkBtn('↓ Re-serialize .csv', '', () => dl(CSV.stringify(data), name)));
+  } else {
+    act.appendChild(mkBtn('↓ Download as .csv', 'primary', () => dl(CSV.stringify(data), swapExt(name, 'csv'))));
+    act.appendChild(mkBtn('↓ Re-serialize .nsv', '', () => dl(NSV.stringify(data), name)));
+  }
+  act.appendChild(mkBtn('Load into editor ↓', '', () => {
+    document.getElementById('nsv-input').value = fmt === 'nsv' ? text : NSV.stringify(data);
+    document.getElementById('btn-parse').click();
+  }));
+  renderTable(data, document.getElementById('pr-table'));
+  res.classList.add('visible');
+});
+
+/* ═══ Convert tab — file drop ═══ */
+
+wireDrop(document.getElementById('convert-drop'), (text, name, size) => {
+  const fmt = detect(text, name);
+  let data;
+  try { data = fmt === 'nsv' ? NSV.parse(text) : CSV.parse(text); }
+  catch (e) { alert('Parse error: ' + e.message); return; }
+  const tFmt = fmt === 'nsv' ? 'csv' : 'nsv';
+  const conv = tFmt === 'nsv' ? NSV.stringify(data) : CSV.stringify(data);
+  const tName = swapExt(name, tFmt);
+  const cells = data.reduce((s, r) => s + r.length, 0);
+  const res = document.getElementById('convert-result');
+  document.getElementById('cr-name').textContent = name + '  →  ' + tName;
+  document.getElementById('cr-meta').textContent = data.length+' rows · '+cells+' cells · '+fmtB(size)+' → '+fmtB(new Blob([conv]).size);
+  const act = document.getElementById('cr-actions'); act.innerHTML = '';
+  act.appendChild(mkBtn('↓ Download ' + tName, 'primary', () => dl(conv, tName)));
+  act.appendChild(mkBtn('Load into editors ↓', '', () => {
+    if (fmt === 'csv') { document.getElementById('csv-input').value = text; document.getElementById('nsv-conv-out').value = conv; }
+    else { document.getElementById('nsv-conv-out').value = text; document.getElementById('csv-input').value = conv; }
+    document.getElementById('convert-status').textContent = data.length + ' rows loaded';
+    document.getElementById('convert-status').className = 'status';
+  }));
+  res.classList.add('visible');
+});
+
+/* ═══ Examples ═══ */
+
+const EX = {
+  table:   'name\nage\ncity\n\nAlice\n30\nBerlin\n\nBob\n25\nTokyo\n\n',
+  ragged:  'error\n404\nNot Found\n/missing\n\nok\n200\n\nredirect\n301\nMoved\n/new\n/old\n\n',
+  escapes: 'plain text\nhas a \\\\backslash\nhas a \\nnewline\n\nanother row\nwith \\\\multiple\\\\ escapes\n\n',
+  empty:   'first\n\\\nsecond\n\\\n\\\n\nthird\n\n',
+};
+const DIFFS = {
+  cell:    { b: [['Alice','30','Berlin'],['Bob','25','Tokyo'],['Carol','28','London']], a: [['Alice','31','Berlin'],['Bob','25','Tokyo'],['Carol','28','London']] },
+  insert:  { b: [['Alice','30','Berlin'],['Carol','28','London']], a: [['Alice','30','Berlin'],['Bob','25','Tokyo'],['Carol','28','London']] },
+  reorder: { b: [['Alice','30','Berlin'],['Bob','25','Tokyo']], a: [['30','Alice','Berlin'],['25','Bob','Tokyo']] },
+};
+
+/* ═══ Tabs ═══ */
+
+document.querySelectorAll('nav button').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+}));
+
+/* ═══ Parse tab — textarea ═══ */
+
+const nsvIn = document.getElementById('nsv-input');
+const sqOut = document.getElementById('seqseq-output');
+const pSt = document.getElementById('parse-status');
+
+function renderSq(data) {
+  if (!data.length) { sqOut.innerHTML = '<span style="color:#555;">Empty seqseq: []</span>'; return; }
+  sqOut.innerHTML = data.map((row, ri) =>
+    '<div class="seqseq-row"><span class="seqseq-index">'+ri+'</span>' +
+    row.map(c => c === '' ? '<span class="seqseq-cell empty">""</span>' : '<span class="seqseq-cell">'+h(c)+'</span>').join('') +
+    '</div>'
+  ).join('');
+}
+
+document.getElementById('btn-parse').addEventListener('click', () => {
+  try {
+    const d = NSV.parse(nsvIn.value); renderSq(d);
+    pSt.textContent = d.length+' rows, '+d.reduce((s,r)=>s+r.length,0)+' cells'; pSt.className = 'status';
+  } catch (e) { pSt.textContent = e.message; pSt.className = 'status error'; }
+});
+document.getElementById('btn-stringify').addEventListener('click', () => {
+  try { nsvIn.value = NSV.stringify(NSV.parse(nsvIn.value)); pSt.textContent = 'Round-tripped'; pSt.className = 'status'; }
+  catch (e) { pSt.textContent = e.message; pSt.className = 'status error'; }
+});
+document.querySelectorAll('#tab-parse .example-picker button').forEach(btn => btn.addEventListener('click', () => {
+  const ex = EX[btn.dataset.example]; if (!ex) return;
+  nsvIn.value = ex; document.getElementById('btn-parse').click();
+  document.querySelectorAll('#tab-parse .example-picker button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}));
+nsvIn.addEventListener('input', () => { if (nsvIn.value) document.getElementById('btn-parse').click(); });
+
+/* ═══ Convert tab — textarea ═══ */
+
+const csvIn = document.getElementById('csv-input');
+const nsvO = document.getElementById('nsv-conv-out');
+const cSt = document.getElementById('convert-status');
+
+document.getElementById('btn-csv-to-nsv').addEventListener('click', () => {
+  try { const d = CSV.parse(csvIn.value); nsvO.value = NSV.stringify(d); cSt.textContent = d.length+' rows'; cSt.className = 'status'; }
+  catch (e) { cSt.textContent = e.message; cSt.className = 'status error'; }
+});
+document.getElementById('btn-nsv-to-csv').addEventListener('click', () => {
+  try { const d = NSV.parse(nsvO.value); csvIn.value = CSV.stringify(d); cSt.textContent = d.length+' rows'; cSt.className = 'status'; }
+  catch (e) { cSt.textContent = e.message; cSt.className = 'status error'; }
+});
+
+/* ═══ Diff tab ═══ */
+
+function lcs(a, b) {
+  const n = a.length, m = b.length;
+  const dp = Array.from({length:n+1}, () => new Array(m+1).fill(0));
+  for (let i=1;i<=n;i++) for(let j=1;j<=m;j++) dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1]+1 : Math.max(dp[i-1][j],dp[i][j-1]);
+  const out = []; let i=n, j=m;
+  while (i>0||j>0) {
+    if (i>0&&j>0&&a[i-1]===b[j-1]) { out.unshift({t:'ctx',s:a[i-1]}); i--; j--; }
+    else if (j>0&&(i===0||dp[i][j-1]>=dp[i-1][j])) { out.unshift({t:'add',s:b[j-1]}); j--; }
+    else { out.unshift({t:'del',s:a[i-1]}); i--; }
+  }
+  return out;
+}
+function renderDiff(el, lines) {
+  el.innerHTML = lines.map(l => {
+    const p = l.t==='add'?'+':l.t==='del'?'-':' ';
+    return '<div class="diff-line '+l.t+'">'+h(p+' '+l.s)+'</div>';
+  }).join('');
+}
+function showDiff(k) {
+  const s = DIFFS[k]; if(!s) return;
+  renderDiff(document.getElementById('csv-diff'), lcs(CSV.stringify(s.b).split('\n'), CSV.stringify(s.a).split('\n')));
+  renderDiff(document.getElementById('nsv-diff'), lcs(NSV.stringify(s.b).split('\n'), NSV.stringify(s.a).split('\n')));
+}
+document.querySelectorAll('#tab-diff .example-picker button').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('#tab-diff .example-picker button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active'); showDiff(btn.dataset.diff);
+}));
+showDiff('cell');
+</script>
+</body>
+</html>
