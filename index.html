@@ -172,46 +172,45 @@
     border-color: #555;
   }
 
-  #drop-zone.compact {
-    flex: 0;
-    padding: 8px 16px;
-    margin: 16px 24px 0;
-    border-width: 1px;
-  }
-  #drop-zone.compact h2 {
-    font-size: 13px;
-    font-weight: 400;
-    color: var(--fg-dim);
-    margin: 0;
-  }
-  #drop-zone.compact p { display: none; }
-
   #table-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
+    gap: 8px;
+    align-items: flex-start;
   }
   #table-list:empty { display: none; }
-  .table-label {
-    font-size: 12px;
-    color: var(--fg-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
   .table-pill {
-    font-family: var(--mono);
-    font-size: 12px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 3px;
-    padding: 2px 8px;
+    padding: 6px 10px;
+  }
+  .table-pill-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
     color: var(--fg);
     cursor: pointer;
   }
-  .table-pill:hover {
-    border-color: #555;
+  .table-pill-name:hover { color: var(--accent); }
+  .table-pill-cols {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--fg-dim);
+    max-height: 54px;
+    overflow-y: auto;
+    line-height: 1.5;
   }
+  .add-more {
+    border: 1px dashed var(--border);
+    border-radius: 3px;
+    padding: 6px 12px;
+    color: var(--fg-dim);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .add-more:hover { border-color: #555; color: var(--fg); }
 
   /* --- Results Area --- */
   .results-container {
@@ -355,24 +354,33 @@
     const el = document.getElementById('table-list');
     el.innerHTML = '';
     if (loadedTables.size === 0) return;
-    const label = document.createElement('span');
-    label.className = 'table-label';
-    label.textContent = 'Tables';
-    el.appendChild(label);
     for (const [name, info] of loadedTables) {
-      const pill = document.createElement('span');
-      pill.className = 'table-pill';
-      pill.textContent = name;
-      if (info.schema) pill.title = info.schema;
-      pill.addEventListener('click', () => {
+      const card = document.createElement('div');
+      card.className = 'table-pill';
+      const nameEl = document.createElement('div');
+      nameEl.className = 'table-pill-name';
+      nameEl.textContent = name;
+      nameEl.addEventListener('click', () => {
         const pos = sqlInput.selectionStart;
         const v = sqlInput.value;
         sqlInput.value = v.substring(0, pos) + name + v.substring(pos);
         sqlInput.selectionStart = sqlInput.selectionEnd = pos + name.length;
         sqlInput.focus();
       });
-      el.appendChild(pill);
+      card.appendChild(nameEl);
+      if (info.columns.length) {
+        const colsEl = document.createElement('div');
+        colsEl.className = 'table-pill-cols';
+        colsEl.textContent = info.columns.join(', ');
+        card.appendChild(colsEl);
+      }
+      el.appendChild(card);
     }
+    const addMore = document.createElement('div');
+    addMore.className = 'add-more';
+    addMore.textContent = '+ Add more files';
+    addMore.addEventListener('click', () => fileInput.click());
+    el.appendChild(addMore);
   }
 
   // --- 1. Initialize DuckDB-Wasm ---
@@ -449,6 +457,10 @@
     if (e.target.files.length) handleFiles(e.target.files);
   });
 
+  const tableListEl = document.getElementById('table-list');
+  tableListEl.addEventListener('dragover', e => e.preventDefault());
+  tableListEl.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+
   function handleDrop(e) {
     const dt = e.dataTransfer;
     const files = dt.files;
@@ -488,8 +500,7 @@
     if (!lastTable) return;
 
     if (isFirstLoad) {
-      dropZone.querySelector('h2').textContent = '+ Add more files';
-      dropZone.classList.add('compact');
+      dropZone.style.display = 'none';
       queryInterface.style.display = 'flex';
       sqlInput.value = `SELECT * FROM ${lastTable} LIMIT 100;`;
       runBtn.disabled = false;
