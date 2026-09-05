@@ -172,6 +172,47 @@
     border-color: #555;
   }
 
+  #drop-zone.compact {
+    flex: 0;
+    padding: 8px 16px;
+    margin: 16px 24px 0;
+    border-width: 1px;
+  }
+  #drop-zone.compact h2 {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--fg-dim);
+    margin: 0;
+  }
+  #drop-zone.compact p { display: none; }
+
+  #table-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  #table-list:empty { display: none; }
+  .table-label {
+    font-size: 12px;
+    color: var(--fg-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .table-pill {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 2px 8px;
+    color: var(--fg);
+    cursor: pointer;
+  }
+  .table-pill:hover {
+    border-color: #555;
+  }
+
   /* --- Results Area --- */
   .results-container {
     flex: 1;
@@ -255,11 +296,12 @@
   <div id="drop-zone">
     <h2>Drop your NSV file here</h2>
     <p>or click to browse</p>
-    <input type="file" id="file-input" accept=".nsv,.csv,.txt">
+    <input type="file" id="file-input" accept=".nsv,.csv,.txt" multiple>
   </div>
 
   <!-- Active State -->
   <div id="query-interface">
+    <div id="table-list"></div>
     <div class="editor-container">
       <textarea id="sql-input" spellcheck="false"></textarea>
       <div class="controls">
@@ -294,10 +336,43 @@
   let lastResult = null;
   let lastSql = null;
   let loadedFileName = 'data';
+  const loadedTables = new Map();
 
   function updateStatus(msg, isError = false) {
     statusEl.textContent = msg;
     statusEl.style.color = isError ? 'var(--del-fg)' : 'var(--add-fg)';
+  }
+
+  function toTableName(fileName) {
+    let name = fileName.replace(/\.[^.]+$/, '');
+    name = name.replace(/[^a-zA-Z0-9_]/g, '_');
+    if (/^\d/.test(name)) name = '_' + name;
+    if (name.length > 24) name = name.substring(0, 24);
+    return name || 'data';
+  }
+
+  function updateTableList() {
+    const el = document.getElementById('table-list');
+    el.innerHTML = '';
+    if (loadedTables.size === 0) return;
+    const label = document.createElement('span');
+    label.className = 'table-label';
+    label.textContent = 'Tables';
+    el.appendChild(label);
+    for (const [name, info] of loadedTables) {
+      const pill = document.createElement('span');
+      pill.className = 'table-pill';
+      pill.textContent = name;
+      if (info.schema) pill.title = info.schema;
+      pill.addEventListener('click', () => {
+        const pos = sqlInput.selectionStart;
+        const v = sqlInput.value;
+        sqlInput.value = v.substring(0, pos) + name + v.substring(pos);
+        sqlInput.selectionStart = sqlInput.selectionEnd = pos + name.length;
+        sqlInput.focus();
+      });
+      el.appendChild(pill);
+    }
   }
 
   // --- 1. Initialize DuckDB-Wasm ---
@@ -382,37 +457,48 @@
 
   async function handleFiles(files) {
     if (files.length === 0) return;
-    const file = files[0];
-    loadedFileName = file.name;
-    
-    try {
-      const duckdb = await duckdbModulePromise;
-      
-      updateStatus(`Loading ${file.name}...`);
-      
-      // Register the File object directly to DuckDB's virtual filesystem
-      await db.registerFileHandle(file.name, file, duckdb.DuckDBDataProtocol.BROWSER_FILEREADER, true);
-      
-      // Create a view for easy querying
-      await conn.query(`CREATE OR REPLACE VIEW data AS SELECT * FROM read_nsv('${file.name}')`);
-      
-      // Switch UI
-      dropZone.style.display = 'none';
-      queryInterface.style.display = 'flex';
-      
-      // Setup initial query
-      sqlInput.value = `SELECT * FROM data LIMIT 100;`;
-      runBtn.disabled = false;
-      
-      // Run it!
-      await executeQuery();
-      updateStatus(`Ready (${file.name})`);
-      
-    } catch (e) {
-      console.error(e);
-      alert(`Failed to load file: ${e.message}`);
-      updateStatus(`Error loading file`, true);
+    const isFirstLoad = loadedTables.size === 0;
+    let duckdb;
+    try { duckdb = await duckdbModulePromise; } catch { return; }
+    let lastTable = null;
+
+    for (const file of files) {
+      const tableName = toTableName(file.name);
+      if (loadedTables.has(tableName)) {
+        updateStatus(`"${tableName}" already loaded`, true);
+        continue;
+      }
+      try {
+        updateStatus(`Loading ${file.name}...`);
+        await db.registerFileHandle(file.name, file, duckdb.DuckDBDataProtocol.BROWSER_FILEREADER, true);
+        await conn.query(`CREATE OR REPLACE VIEW "${tableName}" AS SELECT * FROM read_nsv('${file.name}')`);
+        const probe = await conn.query(`SELECT * FROM "${tableName}" LIMIT 0`);
+        const fields = probe.schema.fields;
+        const columns = fields.map(f => f.name);
+        const schema = fields.map(f => `${f.name}: ${f.type}`).join(', ');
+        loadedTables.set(tableName, { fileName: file.name, columns, schema });
+        loadedFileName = file.name;
+        lastTable = tableName;
+      } catch (e) {
+        console.error(e);
+        updateStatus(`Error loading ${file.name}: ${e.message}`, true);
+      }
     }
+
+    if (!lastTable) return;
+
+    if (isFirstLoad) {
+      dropZone.querySelector('h2').textContent = '+ Add more files';
+      dropZone.classList.add('compact');
+      queryInterface.style.display = 'flex';
+      sqlInput.value = `SELECT * FROM ${lastTable} LIMIT 100;`;
+      runBtn.disabled = false;
+    }
+
+    updateTableList();
+    if (isFirstLoad) await executeQuery();
+    const n = loadedTables.size;
+    updateStatus(`Ready (${n} table${n > 1 ? 's' : ''})`);
   }
 
   // --- 3. Execute Query & Render ---
