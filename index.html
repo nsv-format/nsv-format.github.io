@@ -162,6 +162,15 @@
     background: var(--bg);
   }
 
+  #dl-btn {
+    background: var(--bg);
+    border-color: var(--border);
+    color: var(--fg);
+  }
+  #dl-btn:hover {
+    border-color: #555;
+  }
+
   /* --- Results Area --- */
   .results-container {
     flex: 1;
@@ -253,6 +262,7 @@
     <div class="editor-container">
       <textarea id="sql-input" spellcheck="false"></textarea>
       <div class="controls">
+        <button id="dl-btn" style="display:none">↓ NSV</button>
         <button id="run-btn" disabled>Run Query</button>
       </div>
     </div>
@@ -276,9 +286,13 @@
   const runBtn = document.getElementById('run-btn');
   const resultsContent = document.getElementById('results-content');
   const loadingOverlay = document.getElementById('loading');
+  const dlBtn = document.getElementById('dl-btn');
 
   let db = null;
   let conn = null;
+  let lastResult = null;
+  let lastSql = null;
+  let loadedFileName = 'data';
 
   function updateStatus(msg, isError = false) {
     statusEl.textContent = msg;
@@ -368,6 +382,7 @@
   async function handleFiles(files) {
     if (files.length === 0) return;
     const file = files[0];
+    loadedFileName = file.name;
     
     try {
       const duckdb = await duckdbModulePromise;
@@ -417,13 +432,18 @@
     loadingOverlay.classList.add('active');
     resultsContent.innerHTML = '';
     runBtn.disabled = true;
+    dlBtn.style.display = 'none';
 
     try {
-      // Execute the query. Arrow Table is returned.
       const result = await conn.query(sql);
       renderTable(result);
+      lastResult = result;
+      lastSql = sql;
+      if (result.numRows > 0) dlBtn.style.display = '';
     } catch (e) {
       resultsContent.innerHTML = `<div class="error-message">${e.message}</div>`;
+      lastResult = null;
+      lastSql = null;
     } finally {
       loadingOverlay.classList.remove('active');
       runBtn.disabled = false;
@@ -482,6 +502,26 @@
     html += '</tbody></table>';
     resultsContent.innerHTML = html;
   }
+
+  dlBtn.addEventListener('click', async () => {
+    if (!lastSql) return;
+    dlBtn.disabled = true;
+    try {
+      const vfsPath = '/__dl_result.nsv';
+      await conn.query(`COPY (${lastSql.replace(/;\s*$/, '')}) TO '${vfsPath}' (FORMAT nsv)`);
+      const buf = await db.copyFileToBuffer(vfsPath);
+      await db.dropFile(vfsPath);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([buf], {type: 'text/plain;charset=utf-8'}));
+      a.download = loadedFileName.replace(/\.[^.]+$/, '') + '-results.nsv';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      console.error('Download failed:', e);
+    } finally {
+      dlBtn.disabled = false;
+    }
+  });
 
   function escapeHtml(unsafe) {
     return unsafe
