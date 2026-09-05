@@ -391,14 +391,33 @@
     addMore.textContent = '+ Add more files';
     addMore.addEventListener('click', () => fileInput.click());
     el.appendChild(addMore);
+    const addUrlWrap = document.createElement('div');
+    addUrlWrap.style.cssText = 'flex-basis:100%';
     const addUrl = document.createElement('div');
     addUrl.className = 'add-more';
     addUrl.textContent = '+ Load from URL';
     addUrl.addEventListener('click', () => {
-      const url = prompt('NSV file URL:');
-      if (url?.trim()) loadFromUrl(url.trim()).catch(() => {});
+      addUrl.hidden = true;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'https://...';
+      input.style.cssText = 'background:var(--surface);color:var(--fg);border:1px dashed var(--border);border-radius:3px;padding:6px 12px;font-family:var(--mono);font-size:12px;outline:none;width:360px;max-width:100%';
+      addUrlWrap.appendChild(input);
+      input.focus();
+      const commit = () => {
+        const url = input.value.trim();
+        input.remove();
+        addUrl.hidden = false;
+        if (url) loadFromUrl(url).catch(() => {});
+      };
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') commit();
+        if (e.key === 'Escape') { input.remove(); addUrl.hidden = false; }
+      });
+      input.addEventListener('blur', commit);
     });
-    el.appendChild(addUrl);
+    addUrlWrap.appendChild(addUrl);
+    el.appendChild(addUrlWrap);
   }
 
   // --- 1. Initialize DuckDB-Wasm ---
