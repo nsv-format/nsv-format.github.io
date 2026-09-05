@@ -521,7 +521,7 @@
     if (isFirstLoad) {
       dropZone.style.display = 'none';
       queryInterface.style.display = 'flex';
-      sqlInput.value = `SELECT * FROM ${lastTable} LIMIT 100;`;
+      sqlInput.value = `SELECT *\n  FROM ${lastTable}\n LIMIT 100;`;
       runBtn.disabled = false;
     }
 
