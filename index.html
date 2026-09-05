@@ -555,14 +555,17 @@
     const block = value.substring(from, to);
     const lines = block.split('\n');
     const nonEmpty = lines.filter(l => l.trim());
-    const allCommented = nonEmpty.length > 0 && nonEmpty.every(l => /^\s*--/.test(l));
+    const allCommented = nonEmpty.length > 0 && nonEmpty.every(l => /^--/.test(l));
 
     const toggled = lines.map(l => {
       if (!l.trim()) return l;
-      return allCommented ? l.replace(/^(\s*)--\s?/, '$1') : l.replace(/^(\s*)/, '$1-- ');
+      return allCommented ? l.replace(/^-- ?/, '') : '-- ' + l;
     });
     const newBlock = toggled.join('\n');
-    sqlInput.value = value.substring(0, from) + newBlock + value.substring(to);
+
+    sqlInput.selectionStart = from;
+    sqlInput.selectionEnd = to;
+    document.execCommand('insertText', false, newBlock);
 
     if (noSel) {
       const d = toggled[0].length - lines[0].length;
