@@ -197,9 +197,11 @@
     font-family: var(--mono);
     font-size: 11px;
     color: var(--fg-dim);
-    max-height: 54px;
+    max-height: 72px;
     overflow-y: auto;
-    line-height: 1.5;
+    line-height: 1.4;
+    white-space: pre;
+    margin-top: 2px;
   }
   .add-more {
     border: 1px dashed var(--border);
@@ -495,7 +497,13 @@
         const probe = await conn.query(`SELECT * FROM "${tableName}" LIMIT 0`);
         const fields = probe.schema.fields;
         const columns = fields.map(f => f.name);
-        const schema = fields.map(f => `${f.name}: ${f.type}`).join(', ');
+        let schema = '';
+        try {
+          const desc = await conn.query(`DESCRIBE "${tableName}"`);
+          schema = desc.toArray().map(r => `${r.column_name}  ${r.column_type}`).join('\n');
+        } catch (_) {
+          schema = fields.map(f => `${f.name}  ${f.type}`).join('\n');
+        }
         loadedTables.set(tableName, { fileName: file.name, columns, schema });
         loadedFileName = file.name;
         lastTable = tableName;
