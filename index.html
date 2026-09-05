@@ -218,6 +218,8 @@
     color: var(--add-fg);
     background: #2a3a2a;
   }
+  .table-pill.pill-match { border-color: #3a5a3a; background: #2a3a2a; }
+  .col-match { color: var(--fg); }
 
   /* --- Results Area --- */
   .results-container {
@@ -364,6 +366,7 @@
     for (const [name, info] of loadedTables) {
       const card = document.createElement('div');
       card.className = 'table-pill';
+      card.dataset.table = name;
       const nameEl = document.createElement('div');
       nameEl.className = 'table-pill-name';
       nameEl.textContent = name;
@@ -518,7 +521,7 @@
     if (isFirstLoad) {
       dropZone.style.display = 'none';
       queryInterface.style.display = 'flex';
-      sqlInput.value = `SELECT * FROM ${lastTable} LIMIT 100;`;
+      sqlInput.value = `SELECT *\n  FROM ${lastTable}\n LIMIT 100;`;
       runBtn.disabled = false;
     }
 
@@ -533,6 +536,15 @@
   
   // Allow Cmd+Enter / Ctrl+Enter to run query
   sqlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.metaKey && sqlInput._completion) {
+      e.preventDefault();
+      const { text, start } = sqlInput._completion;
+      const end = sqlInput.selectionStart;
+      sqlInput.selectionStart = start;
+      sqlInput.selectionEnd = end;
+      document.execCommand('insertText', false, text);
+      return;
+    }
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       executeQuery();
@@ -583,6 +595,100 @@
       sqlInput.selectionEnd = from + newBlock.length;
     }
   }
+
+  function getTokenContext() {
+    const { value, selectionStart } = sqlInput;
+    let i = selectionStart;
+    while (i > 0 && /[a-zA-Z0-9_.]/.test(value[i - 1])) i--;
+    const token = value.substring(i, selectionStart);
+    if (!token) return null;
+
+    const dot = token.indexOf('.');
+    if (dot !== -1) {
+      return {
+        type: 'column', table: token.substring(0, dot).toLowerCase(),
+        prefix: token.substring(dot + 1).toLowerCase(), prefixStart: i + dot + 1,
+      };
+    }
+
+    const preceding = value.substring(0, i);
+    const kws = [...preceding.matchAll(/\b(SELECT|FROM|JOIN|WHERE|GROUP|ORDER|HAVING|LIMIT|ON|AND|OR|SET|INTO|UNION|EXCEPT|INTERSECT)\b/gi)];
+    const lastKw = kws.length ? kws[kws.length - 1][1].toUpperCase() : '';
+
+    return lastKw === 'FROM' || lastKw === 'JOIN'
+      ? { type: 'table', prefix: token.toLowerCase(), prefixStart: i }
+      : { type: 'any_column', prefix: token.toLowerCase(), prefixStart: i };
+  }
+
+  function updatePillHighlights() {
+    const ctx = getTokenContext();
+    if (!ctx || (!ctx.prefix && ctx.type !== 'column')) { clearPillHighlights(); return; }
+    const pills = tableListEl.querySelectorAll('.table-pill[data-table]');
+
+    if (ctx.type === 'table') {
+      const matches = [];
+      for (const pill of pills) {
+        const name = pill.dataset.table;
+        const hit = name.toLowerCase().startsWith(ctx.prefix);
+        pill.classList.toggle('pill-match', hit);
+        renderPillCols(pill, loadedTables.get(name), null);
+        if (hit) matches.push(name);
+      }
+      sqlInput._completion = matches.length === 1 && matches[0].toLowerCase() !== ctx.prefix
+        ? { text: matches[0], start: ctx.prefixStart } : null;
+    } else {
+      const tableFilter = ctx.type === 'column' ? ctx.table : null;
+      const matchedCols = new Set();
+      for (const pill of pills) {
+        const name = pill.dataset.table;
+        const info = loadedTables.get(name);
+        if (!info) continue;
+        if (tableFilter && name.toLowerCase() !== tableFilter) {
+          pill.classList.remove('pill-match');
+          renderPillCols(pill, info, null);
+          continue;
+        }
+        const hits = info.columns.filter(c => c.toLowerCase().startsWith(ctx.prefix));
+        pill.classList.toggle('pill-match', hits.length > 0);
+        renderPillCols(pill, info, hits.length > 0 ? ctx.prefix : null);
+        hits.forEach(c => matchedCols.add(c));
+      }
+      const unique = [...matchedCols];
+      sqlInput._completion = unique.length === 1 && unique[0].toLowerCase() !== ctx.prefix
+        ? { text: unique[0], start: ctx.prefixStart } : null;
+    }
+  }
+
+  function clearPillHighlights() {
+    sqlInput._completion = null;
+    for (const pill of tableListEl.querySelectorAll('.table-pill[data-table]')) {
+      pill.classList.remove('pill-match');
+      const info = loadedTables.get(pill.dataset.table);
+      if (info) renderPillCols(pill, info, null);
+    }
+  }
+
+  function renderPillCols(pill, info, matchPrefix) {
+    const el = pill.querySelector('.table-pill-cols');
+    if (!el) return;
+    if (!matchPrefix && matchPrefix !== '') { el.textContent = info.schema; return; }
+    const lines = info.schema.split('\n');
+    const matched = [], rest = [];
+    for (const line of lines) {
+      const col = line.trim().split(/\s+/)[0]?.toLowerCase() || '';
+      (col.startsWith(matchPrefix) ? matched : rest).push({ line, hit: col.startsWith(matchPrefix) });
+    }
+    el.innerHTML = [...matched, ...rest].map(({ line, hit }) =>
+      hit ? `<span class="col-match">${escapeHtml(line)}</span>` : escapeHtml(line)
+    ).join('\n');
+  }
+
+  sqlInput.addEventListener('input', updatePillHighlights);
+  sqlInput.addEventListener('click', updatePillHighlights);
+  sqlInput.addEventListener('keyup', (e) => {
+    if (e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End') updatePillHighlights();
+  });
+  sqlInput.addEventListener('blur', clearPillHighlights);
 
   async function executeQuery() {
     const { selectionStart, selectionEnd, value } = sqlInput;
