@@ -386,11 +386,13 @@
       }
       el.appendChild(card);
     }
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;flex-direction:column;gap:4px';
     const addMore = document.createElement('div');
     addMore.className = 'add-more';
     addMore.textContent = '+ Add more files';
     addMore.addEventListener('click', () => fileInput.click());
-    el.appendChild(addMore);
+    actions.appendChild(addMore);
     const addUrl = document.createElement('div');
     addUrl.className = 'add-more';
     addUrl.textContent = '+ Load from URL';
@@ -400,7 +402,7 @@
       input.type = 'text';
       input.placeholder = 'https://...';
       input.style.cssText = 'background:var(--surface);color:var(--fg);border:1px dashed var(--border);border-radius:3px;padding:6px 12px;font-family:var(--mono);font-size:12px;outline:none;width:360px;max-width:100%';
-      el.insertBefore(input, addUrl);
+      actions.insertBefore(input, addUrl);
       input.focus();
       const commit = () => {
         const url = input.value.trim();
@@ -414,7 +416,8 @@
       });
       input.addEventListener('blur', commit);
     });
-    el.appendChild(addUrl);
+    actions.appendChild(addUrl);
+    el.appendChild(actions);
   }
 
   // --- 1. Initialize DuckDB-Wasm ---
