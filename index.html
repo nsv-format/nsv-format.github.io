@@ -557,20 +557,28 @@
     const nonEmpty = lines.filter(l => l.trim());
     const allCommented = nonEmpty.length > 0 && nonEmpty.every(l => /^--/.test(l));
 
-    const toggled = lines.map(l => {
-      if (!l.trim()) return l;
-      return allCommented ? l.replace(/^-- ?/, '') : '-- ' + l;
-    });
-    const newBlock = toggled.join('\n');
-
-    sqlInput.selectionStart = from;
-    sqlInput.selectionEnd = to;
-    document.execCommand('insertText', false, newBlock);
-
     if (noSel) {
-      const d = toggled[0].length - lines[0].length;
-      sqlInput.selectionStart = sqlInput.selectionEnd = Math.max(from, selectionStart + d);
+      if (!lines[0].trim()) return;
+      if (allCommented) {
+        const m = lines[0].match(/^-- ?/);
+        sqlInput.selectionStart = from;
+        sqlInput.selectionEnd = from + m[0].length;
+        document.execCommand('insertText', false, '');
+      } else {
+        sqlInput.selectionStart = sqlInput.selectionEnd = from;
+        document.execCommand('insertText', false, '-- ');
+      }
+      const nextNl = sqlInput.value.indexOf('\n', from);
+      sqlInput.selectionStart = sqlInput.selectionEnd = nextNl !== -1 ? nextNl + 1 : sqlInput.value.length;
     } else {
+      const toggled = lines.map(l => {
+        if (!l.trim()) return l;
+        return allCommented ? l.replace(/^-- ?/, '') : '-- ' + l;
+      });
+      const newBlock = toggled.join('\n');
+      sqlInput.selectionStart = from;
+      sqlInput.selectionEnd = to;
+      document.execCommand('insertText', false, newBlock);
       sqlInput.selectionStart = from;
       sqlInput.selectionEnd = from + newBlock.length;
     }
