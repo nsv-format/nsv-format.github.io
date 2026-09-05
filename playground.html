@@ -95,6 +95,15 @@
   }
   .sq-table .ec { color: var(--fg-dim); font-style: italic; }
   .table-trunc { padding: 8px 12px; font-size: 12px; color: var(--fg-dim); }
+  .sq-table td[data-c] { cursor: text; }
+  .sq-table td.editing {
+    outline: 1px solid var(--accent); max-width: none;
+    overflow: visible; text-overflow: clip; background: var(--bg);
+  }
+  .seqseq-cell { cursor: text; }
+  .seqseq-cell.editing {
+    outline: 1px solid var(--accent); background: var(--bg); min-width: 2ch;
+  }
 
   .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .pane label {
@@ -366,6 +375,9 @@ function mkBtn(label, cls, fn) {
   b.textContent = label; b.onclick = fn; return b;
 }
 
+let parseFileData = null;
+let currentSeqseq = null;
+
 /* ═══ Table renderer ═══ */
 
 function renderTable(data, el, cap) {
@@ -381,8 +393,8 @@ function renderTable(data, el, cap) {
     for (let c = 0; c < mc; c++) {
       if (c < show[r].length) {
         const v = show[r][c];
-        s += v === '' ? '<td class="ec">""</td>' : '<td>'+h(v)+'</td>';
-      } else s += '<td></td>';
+        s += v === '' ? '<td class="ec" data-r="'+r+'" data-c="'+c+'">""</td>' : '<td data-r="'+r+'" data-c="'+c+'">'+h(v)+'</td>';
+      } else s += '<td data-r="'+r+'" data-c="'+c+'"></td>';
     }
     s += '</tr>';
   }
@@ -409,6 +421,7 @@ wireDrop(document.getElementById('parse-drop'), (text, name, size) => {
   let data;
   try { data = fmt === 'nsv' ? NSV.parse(text) : CSV.parse(text); }
   catch (e) { alert('Parse error: ' + e.message); return; }
+  parseFileData = data;
   const cells = data.reduce((s, r) => s + r.length, 0);
   const res = document.getElementById('parse-result');
   document.getElementById('pr-name').textContent = name;
@@ -487,15 +500,15 @@ function renderSq(data) {
   if (!data.length) { sqOut.innerHTML = '<span style="color:#555;">Empty seqseq: []</span>'; return; }
   sqOut.innerHTML = data.map((row, ri) =>
     '<div class="seqseq-row"><span class="seqseq-index">'+ri+'</span>' +
-    row.map(c => c === '' ? '<span class="seqseq-cell empty">""</span>' : '<span class="seqseq-cell">'+h(c)+'</span>').join('') +
+    row.map((c, ci) => c === '' ? '<span class="seqseq-cell empty" data-r="'+ri+'" data-c="'+ci+'">""</span>' : '<span class="seqseq-cell" data-r="'+ri+'" data-c="'+ci+'">'+h(c)+'</span>').join('') +
     '</div>'
   ).join('');
 }
 
 document.getElementById('btn-parse').addEventListener('click', () => {
   try {
-    const d = NSV.parse(nsvIn.value); renderSq(d);
-    pSt.textContent = d.length+' rows, '+d.reduce((s,r)=>s+r.length,0)+' cells'; pSt.className = 'status';
+    currentSeqseq = NSV.parse(nsvIn.value); renderSq(currentSeqseq);
+    pSt.textContent = currentSeqseq.length+' rows, '+currentSeqseq.reduce((s,r)=>s+r.length,0)+' cells'; pSt.className = 'status';
   } catch (e) { pSt.textContent = e.message; pSt.className = 'status error'; }
 });
 document.getElementById('btn-stringify').addEventListener('click', () => {
@@ -509,6 +522,75 @@ document.querySelectorAll('#tab-parse .example-picker button').forEach(btn => bt
   btn.classList.add('active');
 }));
 nsvIn.addEventListener('input', () => { if (nsvIn.value) document.getElementById('btn-parse').click(); });
+
+/* ═══ Inline cell editing ═══ */
+
+function startEdit(cell, getData, onCommit) {
+  if (cell.classList.contains('editing')) return;
+  const r = +cell.dataset.r, c = +cell.dataset.c;
+  const data = getData();
+  if (!data || r >= data.length) return;
+  const original = c < data[r].length ? data[r][c] : '';
+  const isTable = cell.tagName === 'TD';
+  cell.classList.add('editing');
+  cell.contentEditable = 'true';
+  cell.textContent = original;
+  const range = document.createRange();
+  range.selectNodeContents(cell);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  let done = false;
+  function finish(save) {
+    if (done) return;
+    done = true;
+    const val = save ? cell.textContent : original;
+    cell.contentEditable = 'false';
+    cell.removeEventListener('blur', onBlur);
+    cell.removeEventListener('keydown', onKey);
+    cell.classList.remove('editing');
+    if (save && val !== original) {
+      while (data[r].length <= c) data[r].push('');
+      data[r][c] = val;
+      onCommit(data);
+    }
+    if (val === '') {
+      cell.textContent = '""';
+      cell.classList.add(isTable ? 'ec' : 'empty');
+    } else {
+      cell.textContent = val;
+      cell.classList.remove(isTable ? 'ec' : 'empty');
+    }
+  }
+  function onBlur() { finish(true); }
+  function onKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); cell.blur(); }
+    else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    else if (e.key === 'Tab') {
+      e.preventDefault();
+      finish(true);
+      const sibling = e.shiftKey ? cell.previousElementSibling : cell.nextElementSibling;
+      if (sibling && sibling.dataset.c !== undefined)
+        sibling.dispatchEvent(new MouseEvent('dblclick', {bubbles: true}));
+    }
+  }
+  cell.addEventListener('blur', onBlur);
+  cell.addEventListener('keydown', onKey);
+}
+
+document.getElementById('pr-table').addEventListener('dblclick', e => {
+  const td = e.target.closest('td[data-c]');
+  if (td) startEdit(td, () => parseFileData, () => {});
+});
+
+sqOut.addEventListener('dblclick', e => {
+  const cell = e.target.closest('.seqseq-cell');
+  if (cell) startEdit(cell, () => currentSeqseq, data => {
+    nsvIn.value = NSV.stringify(data);
+    pSt.textContent = data.length+' rows, '+data.reduce((s,r)=>s+r.length,0)+' cells';
+    pSt.className = 'status';
+  });
+});
 
 /* ═══ Convert tab — textarea ═══ */
 
