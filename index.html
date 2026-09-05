@@ -304,7 +304,6 @@
   <div id="drop-zone">
     <h2>Drop your NSV file here</h2>
     <p>or click to browse</p>
-    <p id="load-url-link" style="text-decoration:underline">or load from URL</p>
     <input type="file" id="file-input" accept=".nsv,.csv,.txt" multiple>
   </div>
 
@@ -472,11 +471,6 @@
 
   dropZone.addEventListener('drop', handleDrop, false);
   dropZone.addEventListener('click', () => fileInput.click());
-  document.getElementById('load-url-link').addEventListener('click', (e) => {
-    e.stopPropagation();
-    const url = prompt('NSV file URL:');
-    if (url?.trim()) loadFromUrl(url.trim()).catch(() => {});
-  });
   fileInput.addEventListener('change', (e) => {
     if (e.target.files.length) handleFiles(e.target.files);
   });
@@ -867,7 +861,7 @@
   function updateUrlState() {
     const params = new URLSearchParams();
     for (const [, info] of loadedTables) {
-      if (info.sourceUrl) params.append('url', info.sourceUrl);
+      if (info.sourceUrl) params.append('nsv', info.sourceUrl);
     }
     const sql = sqlInput.value.trim();
     if (sql) params.set('q', sql);
@@ -877,7 +871,7 @@
 
   async function loadFromUrlParams() {
     const params = new URLSearchParams(location.search);
-    const urls = params.getAll('url');
+    const urls = params.getAll('nsv');
     const query = params.get('q');
     if (urls.length === 0 && !query) return;
 
