@@ -537,10 +537,45 @@
       e.preventDefault();
       executeQuery();
     }
+    if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+      e.preventDefault();
+      toggleLineComments();
+    }
   });
 
+  function toggleLineComments() {
+    const { value, selectionStart, selectionEnd } = sqlInput;
+    const noSel = selectionStart === selectionEnd;
+    const from = value.lastIndexOf('\n', selectionStart - 1) + 1;
+    let anchor = noSel ? selectionEnd : selectionEnd;
+    if (!noSel && anchor > from && value[anchor - 1] === '\n') anchor--;
+    const nl = value.indexOf('\n', anchor);
+    const to = nl === -1 ? value.length : nl;
+
+    const block = value.substring(from, to);
+    const lines = block.split('\n');
+    const nonEmpty = lines.filter(l => l.trim());
+    const allCommented = nonEmpty.length > 0 && nonEmpty.every(l => /^\s*--/.test(l));
+
+    const toggled = lines.map(l => {
+      if (!l.trim()) return l;
+      return allCommented ? l.replace(/^(\s*)--\s?/, '$1') : l.replace(/^(\s*)/, '$1-- ');
+    });
+    const newBlock = toggled.join('\n');
+    sqlInput.value = value.substring(0, from) + newBlock + value.substring(to);
+
+    if (noSel) {
+      const d = toggled[0].length - lines[0].length;
+      sqlInput.selectionStart = sqlInput.selectionEnd = Math.max(from, selectionStart + d);
+    } else {
+      sqlInput.selectionStart = from;
+      sqlInput.selectionEnd = from + newBlock.length;
+    }
+  }
+
   async function executeQuery() {
-    const sql = sqlInput.value.trim();
+    const { selectionStart, selectionEnd, value } = sqlInput;
+    const sql = (selectionStart < selectionEnd ? value.substring(selectionStart, selectionEnd) : value).trim();
     if (!sql) return;
 
     loadingOverlay.classList.add('active');
