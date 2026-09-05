@@ -211,6 +211,11 @@
     white-space: nowrap;
   }
   .add-more:hover { border-color: #555; color: var(--fg); }
+  #table-list.dragover .add-more {
+    border-color: var(--add-fg);
+    color: var(--add-fg);
+    background: #2a3a2a;
+  }
 
   /* --- Results Area --- */
   .results-container {
@@ -371,7 +376,7 @@
       if (info.columns.length) {
         const colsEl = document.createElement('div');
         colsEl.className = 'table-pill-cols';
-        colsEl.textContent = info.columns.join(', ');
+        colsEl.textContent = info.schema;
         card.appendChild(colsEl);
       }
       el.appendChild(card);
@@ -458,8 +463,11 @@
   });
 
   const tableListEl = document.getElementById('table-list');
+  let tlDragCount = 0;
+  tableListEl.addEventListener('dragenter', e => { e.preventDefault(); tlDragCount++; tableListEl.classList.add('dragover'); });
+  tableListEl.addEventListener('dragleave', () => { if (--tlDragCount === 0) tableListEl.classList.remove('dragover'); });
   tableListEl.addEventListener('dragover', e => e.preventDefault());
-  tableListEl.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+  tableListEl.addEventListener('drop', e => { e.preventDefault(); tlDragCount = 0; tableListEl.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
 
   function handleDrop(e) {
     const dt = e.dataTransfer;
