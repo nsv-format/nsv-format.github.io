@@ -537,10 +537,56 @@
       e.preventDefault();
       executeQuery();
     }
+    if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+      e.preventDefault();
+      toggleLineComments();
+    }
   });
 
+  function toggleLineComments() {
+    const { value, selectionStart, selectionEnd } = sqlInput;
+    const noSel = selectionStart === selectionEnd;
+    const from = value.lastIndexOf('\n', selectionStart - 1) + 1;
+    let anchor = noSel ? selectionEnd : selectionEnd;
+    if (!noSel && anchor > from && value[anchor - 1] === '\n') anchor--;
+    const nl = value.indexOf('\n', anchor);
+    const to = nl === -1 ? value.length : nl;
+
+    const block = value.substring(from, to);
+    const lines = block.split('\n');
+    const nonEmpty = lines.filter(l => l.trim());
+    const allCommented = nonEmpty.length > 0 && nonEmpty.every(l => /^--/.test(l));
+
+    if (noSel) {
+      if (!lines[0].trim()) return;
+      if (allCommented) {
+        const m = lines[0].match(/^-- ?/);
+        sqlInput.selectionStart = from;
+        sqlInput.selectionEnd = from + m[0].length;
+        document.execCommand('insertText', false, '');
+      } else {
+        sqlInput.selectionStart = sqlInput.selectionEnd = from;
+        document.execCommand('insertText', false, '-- ');
+      }
+      const nextNl = sqlInput.value.indexOf('\n', from);
+      sqlInput.selectionStart = sqlInput.selectionEnd = nextNl !== -1 ? nextNl + 1 : sqlInput.value.length;
+    } else {
+      const toggled = lines.map(l => {
+        if (!l.trim()) return l;
+        return allCommented ? l.replace(/^-- ?/, '') : '-- ' + l;
+      });
+      const newBlock = toggled.join('\n');
+      sqlInput.selectionStart = from;
+      sqlInput.selectionEnd = to;
+      document.execCommand('insertText', false, newBlock);
+      sqlInput.selectionStart = from;
+      sqlInput.selectionEnd = from + newBlock.length;
+    }
+  }
+
   async function executeQuery() {
-    const sql = sqlInput.value.trim();
+    const { selectionStart, selectionEnd, value } = sqlInput;
+    const sql = (selectionStart < selectionEnd ? value.substring(selectionStart, selectionEnd) : value).trim();
     if (!sql) return;
 
     loadingOverlay.classList.add('active');
