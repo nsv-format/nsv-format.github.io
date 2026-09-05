@@ -304,6 +304,7 @@
   <div id="drop-zone">
     <h2>Drop your NSV file here</h2>
     <p>or click to browse</p>
+    <p id="load-url-link" style="text-decoration:underline">or load from URL</p>
     <input type="file" id="file-input" accept=".nsv,.csv,.txt" multiple>
   </div>
 
@@ -391,6 +392,14 @@
     addMore.textContent = '+ Add more files';
     addMore.addEventListener('click', () => fileInput.click());
     el.appendChild(addMore);
+    const addUrl = document.createElement('div');
+    addUrl.className = 'add-more';
+    addUrl.textContent = '+ Load from URL';
+    addUrl.addEventListener('click', () => {
+      const url = prompt('NSV file URL:');
+      if (url?.trim()) loadFromUrl(url.trim()).catch(() => {});
+    });
+    el.appendChild(addUrl);
   }
 
   // --- 1. Initialize DuckDB-Wasm ---
@@ -463,6 +472,11 @@
 
   dropZone.addEventListener('drop', handleDrop, false);
   dropZone.addEventListener('click', () => fileInput.click());
+  document.getElementById('load-url-link').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const url = prompt('NSV file URL:');
+    if (url?.trim()) loadFromUrl(url.trim()).catch(() => {});
+  });
   fileInput.addEventListener('change', (e) => {
     if (e.target.files.length) handleFiles(e.target.files);
   });
@@ -521,7 +535,9 @@
     if (isFirstLoad) {
       dropZone.style.display = 'none';
       queryInterface.style.display = 'flex';
-      sqlInput.value = `SELECT *\n  FROM ${lastTable}\n LIMIT 100;`;
+      if (!sqlInput.value.trim()) {
+        sqlInput.value = `SELECT *\n  FROM ${lastTable}\n LIMIT 100;`;
+      }
       runBtn.disabled = false;
     }
 
@@ -529,6 +545,64 @@
     if (isFirstLoad) await executeQuery();
     const n = loadedTables.size;
     updateStatus(`Ready (${n} table${n > 1 ? 's' : ''})`);
+  }
+
+  async function loadFromUrl(url) {
+    let duckdb;
+    try { duckdb = await duckdbModulePromise; } catch { return; }
+
+    let urlObj;
+    try { urlObj = new URL(url); } catch { updateStatus('Invalid URL', true); return; }
+    const fileName = urlObj.pathname.split('/').pop() || 'remote.nsv';
+    const tableName = toTableName(fileName);
+
+    if (loadedTables.has(tableName)) {
+      updateStatus(`"${tableName}" already loaded`, true);
+      return;
+    }
+
+    try {
+      updateStatus(`Fetching ${fileName}...`);
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const buf = new Uint8Array(await resp.arrayBuffer());
+
+      await db.registerFileBuffer(fileName, buf);
+      await conn.query(`CREATE OR REPLACE VIEW "${tableName}" AS SELECT * FROM read_nsv('${fileName}')`);
+
+      const probe = await conn.query(`SELECT * FROM "${tableName}" LIMIT 0`);
+      const fields = probe.schema.fields;
+      const columns = fields.map(f => f.name);
+      let schema = '';
+      try {
+        const desc = await conn.query(`DESCRIBE "${tableName}"`);
+        schema = desc.toArray().map(r => `${r.column_name}  ${r.column_type}`).join('\n');
+      } catch (_) {
+        schema = fields.map(f => `${f.name}  ${f.type}`).join('\n');
+      }
+
+      loadedTables.set(tableName, { fileName, columns, schema, sourceUrl: url });
+      loadedFileName = fileName;
+
+      if (loadedTables.size === 1) {
+        dropZone.style.display = 'none';
+        queryInterface.style.display = 'flex';
+        if (!sqlInput.value.trim()) {
+          sqlInput.value = `SELECT *\n  FROM ${tableName}\n LIMIT 100;`;
+        }
+        runBtn.disabled = false;
+      }
+
+      updateTableList();
+      const n = loadedTables.size;
+      updateStatus(`Ready (${n} table${n > 1 ? 's' : ''})`);
+    } catch (e) {
+      updateStatus(
+        e.name === 'TypeError' ? `Failed to fetch ${fileName} (CORS or network error)` : `Error: ${e.message}`,
+        true,
+      );
+      throw e;
+    }
   }
 
   // --- 3. Execute Query & Render ---
@@ -706,6 +780,7 @@
       lastResult = result;
       lastSql = sql;
       if (result.numRows > 0) dlBtn.style.display = '';
+      updateUrlState();
     } catch (e) {
       resultsContent.innerHTML = `<div class="error-message">${e.message}</div>`;
       lastResult = null;
@@ -788,6 +863,36 @@
       dlBtn.disabled = false;
     }
   });
+
+  function updateUrlState() {
+    const params = new URLSearchParams();
+    for (const [, info] of loadedTables) {
+      if (info.sourceUrl) params.append('url', info.sourceUrl);
+    }
+    const sql = sqlInput.value.trim();
+    if (sql) params.set('q', sql);
+    const qs = params.toString();
+    history.replaceState(null, '', qs ? '?' + qs : location.pathname);
+  }
+
+  async function loadFromUrlParams() {
+    const params = new URLSearchParams(location.search);
+    const urls = params.getAll('url');
+    const query = params.get('q');
+    if (urls.length === 0 && !query) return;
+
+    if (query) sqlInput.value = query;
+
+    for (const url of urls) {
+      try { await loadFromUrl(url); } catch (_) {}
+    }
+
+    if (loadedTables.size > 0) {
+      await executeQuery();
+    }
+  }
+
+  loadFromUrlParams();
 
   function escapeHtml(unsafe) {
     return unsafe
