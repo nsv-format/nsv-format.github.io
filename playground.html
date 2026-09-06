@@ -645,9 +645,11 @@ wireDrop(document.getElementById('parse-drop'), (text, name, size) => {
     act.appendChild(mkBtn('↓ CSV', '', () => dl(CSV.stringify(data), swapExt(name, 'csv'))));
     act.appendChild(mkBtn('↓ NSV', '', () => dl(NSV.stringify(data), name)));
   }
-  act.appendChild(mkBtn('Load into editor ↓', '', () => {
-    document.getElementById('nsv-input').value = fmt === 'nsv' ? text : NSV.stringify(data);
+  act.appendChild(mkBtn('Load into editor', '', () => {
+    const el = document.getElementById('nsv-input');
+    el.value = fmt === 'nsv' ? text : NSV.stringify(data);
     document.getElementById('btn-parse').click();
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }));
   renderTable(data, document.getElementById('pr-table'));
   res.classList.add('visible');
@@ -669,11 +671,13 @@ wireDrop(document.getElementById('convert-drop'), (text, name, size) => {
   document.getElementById('cr-meta').textContent = data.length+' rows · '+cells+' cells · '+fmtB(size)+' → '+fmtB(new Blob([conv]).size);
   const act = document.getElementById('cr-actions'); act.innerHTML = '';
   act.appendChild(mkBtn('↓ ' + tFmt.toUpperCase(), '', () => dl(conv, tName)));
-  act.appendChild(mkBtn('Load into editors ↓', '', () => {
+  act.appendChild(mkBtn('Load into editors', '', () => {
+    const target = fmt === 'csv' ? 'csv-input' : 'nsv-conv-out';
     if (fmt === 'csv') { document.getElementById('csv-input').value = text; document.getElementById('nsv-conv-out').value = conv; }
     else { document.getElementById('nsv-conv-out').value = text; document.getElementById('csv-input').value = conv; }
     document.getElementById('convert-status').textContent = data.length + ' rows loaded';
     document.getElementById('convert-status').className = 'status';
+    document.getElementById(target).scrollIntoView({ behavior: 'smooth', block: 'center' });
   }));
   res.classList.add('visible');
 });
