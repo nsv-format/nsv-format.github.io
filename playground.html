@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NSV Playground</title>
-<style>
+<style data-shared>
   :root {
     --bg: #1a1a1a;
     --fg: #d4d4d4;
@@ -14,13 +14,14 @@
     --surface: #242424;
     --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
     --sans: system-ui, -apple-system, sans-serif;
-    --add: #2d4a2d;
-    --del: #4a2d2d;
     --add-fg: #6fbf6f;
     --del-fg: #bf6f6f;
-    --drop-active: #2a3a2a;
   }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
+</style>
+<style>
+  :root { --add: #2d4a2d; --del: #4a2d2d; --drop-active: #2a3a2a; }
   body { font-family: var(--sans); background: var(--bg); color: var(--fg); line-height: 1.5; }
 
   header { padding: 20px 24px 0; display: flex; align-items: baseline; gap: 16px; }
