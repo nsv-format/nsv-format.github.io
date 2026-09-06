@@ -16,6 +16,9 @@
     --sans: system-ui, -apple-system, sans-serif;
     --add-fg: #6fbf6f;
     --del-fg: #bf6f6f;
+    --green-bg: #2a3a2a;
+    --green-border: #3a5a3a;
+    --green-border-hover: #4a7a4a;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -79,7 +82,7 @@
 
   #drop-zone.dragover {
     border-color: var(--add-fg);
-    background-color: #2a3a2a;
+    background-color: var(--green-bg);
   }
 
   #drop-zone h2 {
@@ -140,9 +143,9 @@
   }
 
   button {
-    background: #2a3a2a;
-    border: 1px solid #3a5a3a;
-    color: var(--add-fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--fg);
     font-family: var(--sans);
     font-size: 13px;
     padding: 6px 14px;
@@ -152,9 +155,19 @@
   }
 
   button:hover {
-    border-color: #4a7a4a;
+    border-color: #555;
   }
-  
+
+  button.primary {
+    background: var(--green-bg);
+    border-color: var(--green-border);
+    color: var(--add-fg);
+  }
+
+  button.primary:hover {
+    border-color: var(--green-border-hover);
+  }
+
   button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -164,13 +177,7 @@
   }
 
   #dl-btn {
-    background: var(--bg);
-    border-color: var(--border);
-    color: var(--fg);
     margin-right: auto;
-  }
-  #dl-btn:hover {
-    border-color: #555;
   }
 
   #table-list {
@@ -217,7 +224,7 @@
   #table-list.dragover .add-more {
     border-color: var(--add-fg);
     color: var(--add-fg);
-    background: #2a3a2a;
+    background: var(--green-bg);
   }
   .sql-pill {
     background: var(--surface);
@@ -230,7 +237,7 @@
     color: var(--fg-dim);
   }
   .sql-pill:hover { border-color: #555; color: var(--fg); }
-  .table-pill.pill-match { border-color: #3a5a3a; background: #2a3a2a; }
+  .table-pill.pill-match { border-color: var(--green-border); background: var(--green-bg); }
   .col-match { color: var(--fg); }
 
   /* --- Results Area --- */
@@ -326,7 +333,7 @@
       <textarea id="sql-input" spellcheck="false"></textarea>
       <div class="controls">
         <button id="dl-btn" style="display:none">↓ NSV</button>
-        <button id="run-btn" disabled>Run Query</button>
+        <button id="run-btn" class="primary" disabled>Run Query</button>
       </div>
     </div>
     
