@@ -21,21 +21,63 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
 </style>
 <style>
-  :root { --add: #2d4a2d; --del: #4a2d2d; --drop-active: #2a3a2a; }
-  body { font-family: var(--sans); background: var(--bg); color: var(--fg); line-height: 1.5; }
+  :root {
+    --add: #2d4a2d;
+    --del: #4a2d2d;
+    --drop-active: #2a3a2a;
+  }
 
-  header { padding: 20px 24px 0; display: flex; align-items: baseline; gap: 16px; }
-  header h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.5;
+  }
+
+  header {
+    padding: 20px 24px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
   header span { font-size: 13px; color: var(--fg-dim); }
-  header a { color: var(--fg-dim); font-size: 13px; text-decoration: none; margin-left: auto; }
+
+  header a {
+    color: var(--fg-dim);
+    font-size: 13px;
+    text-decoration: none;
+    margin-left: auto;
+  }
+
   header a:hover { color: var(--fg); }
 
-  nav { display: flex; gap: 0; padding: 16px 24px 0; border-bottom: 1px solid var(--border); }
-  nav button {
-    background: none; border: none; color: var(--fg-dim); font-family: var(--sans);
-    font-size: 14px; padding: 8px 16px; cursor: pointer; border-bottom: 2px solid transparent;
-    margin-bottom: -1px; transition: color 0.15s;
+  nav {
+    display: flex;
+    gap: 0;
+    padding: 16px 24px 0;
+    border-bottom: 1px solid var(--border);
   }
+
+  nav button {
+    background: none;
+    border: none;
+    color: var(--fg-dim);
+    font-family: var(--sans);
+    font-size: 14px;
+    padding: 8px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s;
+  }
+
   nav button:hover { color: var(--fg); }
   nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
 
@@ -43,124 +85,289 @@
   .tab.active { display: block; }
 
   .dropzone {
-    border: 2px dashed var(--border); border-radius: 8px; padding: 32px;
-    text-align: center; cursor: pointer; transition: all 0.2s;
-    margin-bottom: 20px; position: relative;
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 20px;
+    position: relative;
   }
+
   .dropzone:hover { border-color: #555; }
   .dropzone.dragover { border-color: var(--add-fg); background: var(--drop-active); }
   .dropzone-icon { font-size: 28px; margin-bottom: 8px; opacity: 0.5; }
   .dropzone-text { font-size: 14px; color: var(--fg-dim); }
   .dropzone-text strong { color: var(--fg); }
   .dropzone-sub { font-size: 12px; color: #555; margin-top: 4px; }
-  .dropzone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+  .dropzone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
 
   .file-result {
-    display: none; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 6px; padding: 16px; margin-bottom: 20px;
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 20px;
   }
+
   .file-result.visible { display: block; }
-  .file-result-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+
+  .file-result-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
   .file-result-name { font-family: var(--mono); font-size: 13px; }
   .file-result-meta { font-size: 12px; color: var(--fg-dim); font-family: var(--mono); }
-  .file-result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .file-result-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
 
   .btn {
-    background: var(--bg); border: 1px solid var(--border); color: var(--fg);
-    font-family: var(--sans); font-size: 13px; padding: 6px 14px; border-radius: 4px;
-    cursor: pointer; transition: border-color 0.15s;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.15s;
   }
+
   .btn:hover { border-color: #555; }
   .btn.primary { background: #2a3a2a; border-color: #3a5a3a; color: var(--add-fg); }
   .btn.primary:hover { border-color: #4a7a4a; }
 
   .table-wrap {
-    overflow: auto; max-height: 420px;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 4px; margin-top: 14px;
+    overflow: auto;
+    max-height: 420px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-top: 14px;
   }
+
   .table-wrap:empty { display: none; }
-  .sq-table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 12px; }
+
+  .sq-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
   .sq-table th {
-    position: sticky; top: 0; background: #2a2a2a; color: var(--fg-dim);
-    font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
-    padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: left;
+    position: sticky;
+    top: 0;
+    background: #2a2a2a;
+    color: var(--fg-dim);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
   }
+
   .sq-table td {
-    padding: 4px 10px; border-bottom: 1px solid #2a2a2a;
-    white-space: pre; max-width: 300px; overflow: hidden; text-overflow: ellipsis;
+    padding: 4px 10px;
+    border-bottom: 1px solid #2a2a2a;
+    white-space: pre;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
+
   .sq-table tr:hover td { background: #2a2a2a; }
+
   .sq-table .ri {
-    color: #555; text-align: right; padding-right: 12px; user-select: none;
-    border-right: 1px solid var(--border); width: 40px;
+    color: #555;
+    text-align: right;
+    padding-right: 12px;
+    user-select: none;
+    border-right: 1px solid var(--border);
+    width: 40px;
   }
+
   .sq-table .ec { color: var(--fg-dim); font-style: italic; }
   .table-trunc { padding: 8px 12px; font-size: 12px; color: var(--fg-dim); }
   .sq-table td[data-c] { cursor: text; }
+
   .sq-table td.editing {
-    outline: 1px solid var(--accent); max-width: none;
-    overflow: visible; text-overflow: clip; background: var(--bg);
-  }
-  .seqseq-cell { cursor: text; }
-  .seqseq-cell.editing {
-    outline: 1px solid var(--accent); background: var(--bg); min-width: 2ch;
+    outline: 1px solid var(--accent);
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    background: var(--bg);
   }
 
-  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .seqseq-cell { cursor: text; }
+
+  .seqseq-cell.editing {
+    outline: 1px solid var(--accent);
+    background: var(--bg);
+    min-width: 2ch;
+  }
+
+  .panes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
   .pane label {
-    display: block; font-size: 12px; color: var(--fg-dim); text-transform: uppercase;
-    letter-spacing: 0.05em; margin-bottom: 6px;
+    display: block;
+    font-size: 12px;
+    color: var(--fg-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
   }
+
   textarea {
-    width: 100%; height: 280px; background: var(--surface); color: var(--fg);
-    border: 1px solid var(--border); border-radius: 4px; padding: 12px;
-    font-family: var(--mono); font-size: 13px; line-height: 1.6; resize: vertical; tab-size: 2;
+    width: 100%;
+    height: 280px;
+    background: var(--surface);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+    tab-size: 2;
   }
+
   textarea:focus { outline: none; border-color: #555; }
   textarea::placeholder { color: #555; }
 
-  .actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    align-items: center;
+  }
+
   .status { font-size: 12px; color: var(--fg-dim); font-family: var(--mono); }
   .status.error { color: var(--del-fg); }
 
-  .example-picker { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
-  .example-picker button {
-    background: var(--surface); border: 1px solid var(--border); color: var(--fg-dim);
-    font-family: var(--sans); font-size: 12px; padding: 4px 10px; border-radius: 3px; cursor: pointer;
+  .example-picker {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
   }
+
+  .example-picker button {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--fg-dim);
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+
   .example-picker button:hover { color: var(--fg); border-color: #555; }
   .example-picker button.active { color: var(--accent); border-color: #555; }
 
   .seqseq-view {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
-    padding: 12px; font-family: var(--mono); font-size: 13px; min-height: 100px;
-    overflow: auto; line-height: 1.6;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 13px;
+    min-height: 100px;
+    overflow: auto;
+    line-height: 1.6;
   }
+
   .seqseq-row { margin-bottom: 4px; }
+
   .seqseq-cell {
-    display: inline-block; background: #2a2a2a; border: 1px solid #383838;
-    border-radius: 2px; padding: 1px 6px; margin: 1px 2px; font-size: 12px;
+    display: inline-block;
+    background: #2a2a2a;
+    border: 1px solid #383838;
+    border-radius: 2px;
+    padding: 1px 6px;
+    margin: 1px 2px;
+    font-size: 12px;
   }
+
   .seqseq-cell.empty { color: var(--fg-dim); font-style: italic; }
-  .seqseq-index { color: #555; font-size: 11px; display: inline-block; width: 24px; text-align: right; margin-right: 8px; }
+
+  .seqseq-index {
+    color: #555;
+    font-size: 11px;
+    display: inline-block;
+    width: 24px;
+    text-align: right;
+    margin-right: 8px;
+  }
 
   .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 
-  .diff-container { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  .diff-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
   .diff-box {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
-    overflow: auto; font-family: var(--mono); font-size: 13px; line-height: 1.6;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: auto;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
   }
+
   .diff-box h3 {
-    font-size: 12px; font-weight: 500; color: var(--fg-dim); padding: 8px 12px;
-    border-bottom: 1px solid var(--border); text-transform: uppercase;
-    letter-spacing: 0.05em; position: sticky; top: 0; background: var(--surface);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fg-dim);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    background: var(--surface);
   }
+
   .diff-line { padding: 0 12px; white-space: pre; }
   .diff-line.add { background: var(--add); color: var(--add-fg); }
   .diff-line.del { background: var(--del); color: var(--del-fg); }
   .diff-line.ctx { color: var(--fg-dim); }
-  .diff-intro { font-size: 13px; color: var(--fg-dim); line-height: 1.7; max-width: 720px; }
+
+  .diff-intro {
+    font-size: 13px;
+    color: var(--fg-dim);
+    line-height: 1.7;
+    max-width: 720px;
+  }
 
   @media (max-width: 768px) {
     .panes, .diff-container { grid-template-columns: 1fr; }
