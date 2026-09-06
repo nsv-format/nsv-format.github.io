@@ -647,7 +647,7 @@ wireDrop(document.getElementById('parse-drop'), (text, name, size) => {
   }
   act.appendChild(mkBtn('Load into editor', '', () => {
     const el = document.getElementById('nsv-input');
-    el.value = fmt === 'nsv' ? text : NSV.stringify(data);
+    el.value = NSV.stringify(data);
     document.getElementById('btn-parse').click();
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }));
