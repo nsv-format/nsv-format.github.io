@@ -218,6 +218,17 @@
     color: var(--add-fg);
     background: #2a3a2a;
   }
+  .sql-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--fg-dim);
+  }
+  .sql-pill:hover { border-color: #555; color: var(--fg); }
   .table-pill.pill-match { border-color: #3a5a3a; background: #2a3a2a; }
   .col-match { color: var(--fg); }
 
@@ -304,7 +315,7 @@
   <div id="drop-zone">
     <h2>Drop your NSV file here</h2>
     <p>or click to browse</p>
-    <input type="file" id="file-input" accept=".nsv,.csv,.txt" multiple>
+    <input type="file" id="file-input" accept=".nsv,.csv,.txt,.sql" multiple>
   </div>
 
   <!-- Active State -->
@@ -345,6 +356,7 @@
   let lastSql = null;
   let loadedFileName = 'data';
   const loadedTables = new Map();
+  const loadedQueries = new Map();
 
   function updateStatus(msg, isError = false) {
     statusEl.textContent = msg;
@@ -362,7 +374,7 @@
   function updateTableList() {
     const el = document.getElementById('table-list');
     el.innerHTML = '';
-    if (loadedTables.size === 0) return;
+    if (loadedTables.size === 0 && loadedQueries.size === 0) return;
     for (const [name, info] of loadedTables) {
       const card = document.createElement('div');
       card.className = 'table-pill';
@@ -371,11 +383,8 @@
       nameEl.className = 'table-pill-name';
       nameEl.textContent = name;
       nameEl.addEventListener('click', () => {
-        const pos = sqlInput.selectionStart;
-        const v = sqlInput.value;
-        sqlInput.value = v.substring(0, pos) + name + v.substring(pos);
-        sqlInput.selectionStart = sqlInput.selectionEnd = pos + name.length;
         sqlInput.focus();
+        document.execCommand('insertText', false, name);
       });
       card.appendChild(nameEl);
       if (info.columns.length) {
@@ -385,6 +394,16 @@
         card.appendChild(colsEl);
       }
       el.appendChild(card);
+    }
+    for (const [name, sql] of loadedQueries) {
+      const pill = document.createElement('div');
+      pill.className = 'sql-pill';
+      pill.textContent = name + '.sql';
+      pill.addEventListener('click', () => {
+        sqlInput.focus();
+        document.execCommand('insertText', false, sql);
+      });
+      el.appendChild(pill);
     }
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;flex-direction:column;gap:4px';
@@ -515,6 +534,18 @@
     let lastTable = null;
 
     for (const file of files) {
+      if (/\.sql$/i.test(file.name)) {
+        const text = await file.text();
+        const name = file.name.replace(/\.sql$/i, '');
+        loadedQueries.set(name, text);
+        if (queryInterface.style.display === 'none') {
+          dropZone.style.display = 'none';
+          queryInterface.style.display = 'flex';
+          runBtn.disabled = false;
+        }
+        updateTableList();
+        continue;
+      }
       const tableName = toTableName(file.name);
       if (loadedTables.has(tableName)) {
         updateStatus(`"${tableName}" already loaded`, true);
