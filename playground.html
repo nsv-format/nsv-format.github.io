@@ -592,6 +592,21 @@ sqOut.addEventListener('dblclick', e => {
   });
 });
 
+/* ═══ Tab key trapping in textareas ═══ */
+
+[nsvIn, document.getElementById('csv-input'), document.getElementById('nsv-conv-out')].forEach(ta => {
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { ta._tabEscaped = true; return; }
+    if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+      if (ta._tabEscaped) { ta._tabEscaped = false; return; }
+      e.preventDefault();
+      document.execCommand('insertText', false, '    ');
+      return;
+    }
+    ta._tabEscaped = false;
+  });
+});
+
 /* ═══ Convert tab — textarea ═══ */
 
 const csvIn = document.getElementById('csv-input');

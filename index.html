@@ -654,15 +654,24 @@
   
   // Allow Cmd+Enter / Ctrl+Enter to run query
   sqlInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.metaKey && sqlInput._completion) {
+    if (e.key === 'Escape') { sqlInput._tabEscaped = true; return; }
+    if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      if (sqlInput._completion) {
+        e.preventDefault();
+        const { text, start } = sqlInput._completion;
+        const end = sqlInput.selectionStart;
+        sqlInput.selectionStart = start;
+        sqlInput.selectionEnd = end;
+        document.execCommand('insertText', false, text);
+        sqlInput._tabEscaped = false;
+        return;
+      }
+      if (sqlInput._tabEscaped) { sqlInput._tabEscaped = false; return; }
       e.preventDefault();
-      const { text, start } = sqlInput._completion;
-      const end = sqlInput.selectionStart;
-      sqlInput.selectionStart = start;
-      sqlInput.selectionEnd = end;
-      document.execCommand('insertText', false, text);
+      document.execCommand('insertText', false, '    ');
       return;
     }
+    if (e.key !== 'Escape') sqlInput._tabEscaped = false;
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       executeQuery();
