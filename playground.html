@@ -436,7 +436,6 @@
       <label>NSV (encoded)</label>
       <textarea id="nsv-input" placeholder="Paste NSV here or pick an example..."></textarea>
       <div class="actions">
-        <button class="btn" id="btn-parse">Parse →</button>
         <span class="status" id="parse-status"></span>
       </div>
     </div>
@@ -678,7 +677,7 @@ wireDrop(document.getElementById('parse-drop'), (text, name, size) => {
   act.appendChild(mkBtn('Load into editor', '', () => {
     const el = document.getElementById('nsv-input');
     el.value = NSV.stringify(data);
-    document.getElementById('btn-parse').click();
+    doParse();
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }));
   const drop = document.getElementById('parse-drop');
@@ -756,23 +755,24 @@ function renderSq(data) {
   ).join('');
 }
 
-document.getElementById('btn-parse').addEventListener('click', () => {
+function doParse() {
   try {
     currentSeqseq = NSV.parse(nsvIn.value); renderSq(currentSeqseq);
     pSt.textContent = currentSeqseq.length+' rows, '+currentSeqseq.reduce((s,r)=>s+r.length,0)+' cells'; pSt.className = 'status';
   } catch (e) { pSt.textContent = e.message; pSt.className = 'status error'; }
-});
+}
 document.getElementById('btn-stringify').addEventListener('click', () => {
   try { nsvIn.value = NSV.stringify(NSV.parse(nsvIn.value)); pSt.textContent = 'Round-tripped'; pSt.className = 'status'; }
   catch (e) { pSt.textContent = e.message; pSt.className = 'status error'; }
 });
 document.querySelectorAll('#tab-parse .example-picker button').forEach(btn => btn.addEventListener('click', () => {
   const ex = EX[btn.dataset.example]; if (!ex) return;
-  nsvIn.value = ex; document.getElementById('btn-parse').click();
+  nsvIn.value = ex; doParse();
   document.querySelectorAll('#tab-parse .example-picker button').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 }));
-nsvIn.addEventListener('input', () => { if (nsvIn.value) document.getElementById('btn-parse').click(); });
+let parseTimer;
+nsvIn.addEventListener('input', () => { clearTimeout(parseTimer); parseTimer = setTimeout(() => { if (nsvIn.value) doParse(); }, 100); });
 
 /* ═══ Inline cell editing ═══ */
 
