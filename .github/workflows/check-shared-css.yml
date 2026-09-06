@@ -11,28 +11,12 @@ jobs:
         run: |
           python3 -c "
           import glob, sys
-          from html.parser import HTMLParser
 
-          class SharedCSS(HTMLParser):
-              def __init__(self):
-                  super().__init__()
-                  self._in = False
-                  self.parts = []
-              def handle_starttag(self, tag, attrs):
-                  if tag == 'style' and any(k == 'data-shared' for k, v in attrs):
-                      self._in = True
-              def handle_data(self, data):
-                  if self._in: self.parts.append(data)
-              def handle_endtag(self, tag):
-                  if tag == 'style' and self._in: self._in = False
-
-          files = sorted(glob.glob('**/*.html', recursive=True))
           blocks = {}
-          for f in files:
-              p = SharedCSS()
-              p.feed(open(f).read())
-              if p.parts:
-                  blocks[f] = ''.join(p.parts)
+          for f in sorted(glob.glob('**/*.html', recursive=True)):
+              text = open(f).read()
+              if '<style data-shared>' not in text: continue
+              blocks[f] = text.split('<style data-shared>', 1)[1].split('</style>', 1)[0]
 
           if len(blocks) < 2:
               print(f'Need at least 2 files with <style data-shared>; found {len(blocks)}')
