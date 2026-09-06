@@ -16,6 +16,9 @@
     --sans: system-ui, -apple-system, sans-serif;
     --add-fg: #6fbf6f;
     --del-fg: #bf6f6f;
+    --green-bg: #2a3a2a;
+    --green-border: #3a5a3a;
+    --green-border-hover: #4a7a4a;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -24,7 +27,7 @@
   :root {
     --add: #2d4a2d;
     --del: #4a2d2d;
-    --drop-active: #2a3a2a;
+    --drop-active: var(--green-bg);
   }
 
   body {
@@ -135,7 +138,22 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+    align-items: center;
   }
+
+  .replace-target {
+    margin-left: auto;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--fg-dim);
+    cursor: pointer;
+    position: relative;
+  }
+
+  .replace-target:hover { border-color: #555; color: var(--fg); }
+  .replace-target.dragover { border-color: var(--add-fg); color: var(--add-fg); }
 
   .btn {
     background: var(--bg);
@@ -150,8 +168,8 @@
   }
 
   .btn:hover { border-color: #555; }
-  .btn.primary { background: #2a3a2a; border-color: #3a5a3a; color: var(--add-fg); }
-  .btn.primary:hover { border-color: #4a7a4a; }
+  .btn.primary { background: var(--green-bg); border-color: var(--green-border); color: var(--add-fg); }
+  .btn.primary:hover { border-color: var(--green-border-hover); }
 
   .table-wrap {
     overflow: auto;
@@ -622,6 +640,21 @@ function wireDrop(zone, fn) {
 }
 function rd(file, fn) { const r = new FileReader(); r.onload = () => fn(r.result, file.name, file.size); r.readAsText(file, 'utf-8'); }
 
+function mkReplace(zone) {
+  const inp = zone.querySelector('input[type="file"]');
+  const el = document.createElement('div');
+  el.className = 'replace-target';
+  el.textContent = 'Replace';
+  el.addEventListener('click', () => inp.click());
+  ['dragenter','dragover'].forEach(e => el.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); el.classList.add('dragover'); }));
+  ['dragleave'].forEach(e => el.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); el.classList.remove('dragover'); }));
+  el.addEventListener('drop', e => {
+    e.preventDefault(); e.stopPropagation(); el.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) { inp.files = e.dataTransfer.files; inp.dispatchEvent(new Event('change')); }
+  });
+  return el;
+}
+
 /* ═══ Parse tab — file drop ═══ */
 
 wireDrop(document.getElementById('parse-drop'), (text, name, size) => {
@@ -636,18 +669,23 @@ wireDrop(document.getElementById('parse-drop'), (text, name, size) => {
   document.getElementById('pr-meta').textContent = fmt.toUpperCase()+' · '+fmtB(size)+' · '+data.length+' rows · '+cells+' cells';
   const act = document.getElementById('pr-actions'); act.innerHTML = '';
   if (fmt === 'csv') {
-    act.appendChild(mkBtn('↓ Download as .nsv', 'primary', () => dl(NSV.stringify(data), swapExt(name, 'nsv'))));
-    act.appendChild(mkBtn('↓ Re-serialize .csv', '', () => dl(CSV.stringify(data), name)));
+    act.appendChild(mkBtn('↓ NSV', '', () => dl(NSV.stringify(data), swapExt(name, 'nsv'))));
+    act.appendChild(mkBtn('↓ CSV', '', () => dl(CSV.stringify(data), name)));
   } else {
-    act.appendChild(mkBtn('↓ Download as .csv', 'primary', () => dl(CSV.stringify(data), swapExt(name, 'csv'))));
-    act.appendChild(mkBtn('↓ Re-serialize .nsv', '', () => dl(NSV.stringify(data), name)));
+    act.appendChild(mkBtn('↓ CSV', '', () => dl(CSV.stringify(data), swapExt(name, 'csv'))));
+    act.appendChild(mkBtn('↓ NSV', '', () => dl(NSV.stringify(data), name)));
   }
-  act.appendChild(mkBtn('Load into editor ↓', '', () => {
-    document.getElementById('nsv-input').value = fmt === 'nsv' ? text : NSV.stringify(data);
+  act.appendChild(mkBtn('Load into editor', '', () => {
+    const el = document.getElementById('nsv-input');
+    el.value = NSV.stringify(data);
     document.getElementById('btn-parse').click();
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }));
+  const drop = document.getElementById('parse-drop');
+  act.appendChild(mkReplace(drop));
   renderTable(data, document.getElementById('pr-table'));
   res.classList.add('visible');
+  drop.hidden = true;
 });
 
 /* ═══ Convert tab — file drop ═══ */
@@ -665,14 +703,19 @@ wireDrop(document.getElementById('convert-drop'), (text, name, size) => {
   document.getElementById('cr-name').textContent = name + '  →  ' + tName;
   document.getElementById('cr-meta').textContent = data.length+' rows · '+cells+' cells · '+fmtB(size)+' → '+fmtB(new Blob([conv]).size);
   const act = document.getElementById('cr-actions'); act.innerHTML = '';
-  act.appendChild(mkBtn('↓ Download ' + tName, 'primary', () => dl(conv, tName)));
-  act.appendChild(mkBtn('Load into editors ↓', '', () => {
+  act.appendChild(mkBtn('↓ ' + tFmt.toUpperCase(), '', () => dl(conv, tName)));
+  act.appendChild(mkBtn('Load into editors', '', () => {
+    const target = fmt === 'csv' ? 'csv-input' : 'nsv-conv-out';
     if (fmt === 'csv') { document.getElementById('csv-input').value = text; document.getElementById('nsv-conv-out').value = conv; }
     else { document.getElementById('nsv-conv-out').value = text; document.getElementById('csv-input').value = conv; }
     document.getElementById('convert-status').textContent = data.length + ' rows loaded';
     document.getElementById('convert-status').className = 'status';
+    document.getElementById(target).scrollIntoView({ behavior: 'smooth', block: 'center' });
   }));
+  const drop = document.getElementById('convert-drop');
+  act.appendChild(mkReplace(drop));
   res.classList.add('visible');
+  drop.hidden = true;
 });
 
 /* ═══ Examples ═══ */
