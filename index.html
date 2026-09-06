@@ -383,11 +383,8 @@
       nameEl.className = 'table-pill-name';
       nameEl.textContent = name;
       nameEl.addEventListener('click', () => {
-        const pos = sqlInput.selectionStart;
-        const v = sqlInput.value;
-        sqlInput.value = v.substring(0, pos) + name + v.substring(pos);
-        sqlInput.selectionStart = sqlInput.selectionEnd = pos + name.length;
         sqlInput.focus();
+        document.execCommand('insertText', false, name);
       });
       card.appendChild(nameEl);
       if (info.columns.length) {
@@ -403,8 +400,8 @@
       pill.className = 'sql-pill';
       pill.textContent = name + '.sql';
       pill.addEventListener('click', () => {
-        sqlInput.value = sql;
         sqlInput.focus();
+        document.execCommand('insertText', false, sql);
       });
       el.appendChild(pill);
     }
