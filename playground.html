@@ -105,11 +105,6 @@
   .dropzone-text strong { color: var(--fg); }
   .dropzone-sub { font-size: 12px; color: #555; margin-top: 4px; }
 
-  .dropzone.compact { padding: 10px 16px; margin-bottom: 12px; }
-  .dropzone.compact .dropzone-icon,
-  .dropzone.compact .dropzone-sub { display: none; }
-  .dropzone.compact .dropzone-text { font-size: 12px; }
-
   .dropzone input[type="file"] {
     position: absolute;
     inset: 0;
@@ -143,7 +138,22 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+    align-items: center;
   }
+
+  .replace-target {
+    margin-left: auto;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--fg-dim);
+    cursor: pointer;
+    position: relative;
+  }
+
+  .replace-target:hover { border-color: #555; color: var(--fg); }
+  .replace-target.dragover { border-color: var(--add-fg); color: var(--add-fg); }
 
   .btn {
     background: var(--bg);
@@ -630,6 +640,21 @@ function wireDrop(zone, fn) {
 }
 function rd(file, fn) { const r = new FileReader(); r.onload = () => fn(r.result, file.name, file.size); r.readAsText(file, 'utf-8'); }
 
+function mkReplace(zone) {
+  const inp = zone.querySelector('input[type="file"]');
+  const el = document.createElement('div');
+  el.className = 'replace-target';
+  el.textContent = 'Replace';
+  el.addEventListener('click', () => inp.click());
+  ['dragenter','dragover'].forEach(e => el.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); el.classList.add('dragover'); }));
+  ['dragleave'].forEach(e => el.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); el.classList.remove('dragover'); }));
+  el.addEventListener('drop', e => {
+    e.preventDefault(); e.stopPropagation(); el.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) { inp.files = e.dataTransfer.files; inp.dispatchEvent(new Event('change')); }
+  });
+  return el;
+}
+
 /* ═══ Parse tab — file drop ═══ */
 
 wireDrop(document.getElementById('parse-drop'), (text, name, size) => {
@@ -656,9 +681,11 @@ wireDrop(document.getElementById('parse-drop'), (text, name, size) => {
     document.getElementById('btn-parse').click();
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }));
+  const drop = document.getElementById('parse-drop');
+  act.appendChild(mkReplace(drop));
   renderTable(data, document.getElementById('pr-table'));
   res.classList.add('visible');
-  document.getElementById('parse-drop').classList.add('compact');
+  drop.hidden = true;
 });
 
 /* ═══ Convert tab — file drop ═══ */
@@ -685,8 +712,10 @@ wireDrop(document.getElementById('convert-drop'), (text, name, size) => {
     document.getElementById('convert-status').className = 'status';
     document.getElementById(target).scrollIntoView({ behavior: 'smooth', block: 'center' });
   }));
+  const drop = document.getElementById('convert-drop');
+  act.appendChild(mkReplace(drop));
   res.classList.add('visible');
-  document.getElementById('convert-drop').classList.add('compact');
+  drop.hidden = true;
 });
 
 /* ═══ Examples ═══ */
