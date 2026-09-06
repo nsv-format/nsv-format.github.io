@@ -771,8 +771,8 @@ document.querySelectorAll('#tab-parse .example-picker button').forEach(btn => bt
   document.querySelectorAll('#tab-parse .example-picker button').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 }));
-let parseTimer;
-nsvIn.addEventListener('input', () => { clearTimeout(parseTimer); parseTimer = setTimeout(() => { if (nsvIn.value) doParse(); }, 100); });
+let parseRAF;
+nsvIn.addEventListener('input', () => { if (!parseRAF) parseRAF = requestAnimationFrame(() => { parseRAF = null; if (nsvIn.value) doParse(); }); });
 
 /* ═══ Inline cell editing ═══ */
 
