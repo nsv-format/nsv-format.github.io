@@ -1,0 +1,27 @@
+name: Shared CSS coherence
+on:
+  push:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify shared CSS blocks are identical
+        run: |
+          blocks=()
+          for f in $(grep -rl 'data-shared' --include='*.html'); do
+            blocks+=("$(sed -n '/<style data-shared>/,/<\/style>/p' "$f")")
+          done
+          if [ "${#blocks[@]}" -lt 2 ]; then
+            echo "Need at least two files with <style data-shared>; found ${#blocks[@]}"
+            exit 1
+          fi
+          for i in $(seq 1 $((${#blocks[@]} - 1))); do
+            if [ "${blocks[0]}" != "${blocks[$i]}" ]; then
+              echo "Shared CSS mismatch"
+              diff <(echo "${blocks[0]}") <(echo "${blocks[$i]}")
+              exit 1
+            fi
+          done
+          echo "Shared CSS is consistent across ${#blocks[@]} files."
